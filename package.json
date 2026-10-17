@@ -2,9 +2,7 @@
   "name": "python-kit",
   "version": "1.0.0",
   "description": "Python Kit - Zero-Setup Coding Education Platform",
-  "engines": {
-    "node": "24.x"
-  },
+  "engines": { "node": "24.x" }
   "scripts": {
     "start": "vercel dev",
     "build": "echo 'Vercel handles builds'",
