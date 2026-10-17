@@ -1,0 +1,13 @@
+{
+  "name": "python-kit",
+  "version": "1.0.0",
+  "description": "Python Kit - Zero-Setup Coding Education Platform",
+  "scripts": {
+    "start": "vercel dev",
+    "build": "echo 'Vercel handles builds'",
+    "deploy": "vercel --prod"
+  },
+  "devDependencies": {
+    "vercel": "^30.0.0"
+  }
+}
