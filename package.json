@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Python Kit - Zero-Setup Coding Education Platform",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "start": "vercel dev",
