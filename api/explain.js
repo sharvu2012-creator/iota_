@@ -46,7 +46,6 @@ module.exports = async function handler(req, res) {
 
     let r = await callGemini(MODEL);
 
-    // If the model name is unknown, find a current Flash model automatically
     if (r.status === 404) {
       const listRes = await fetch(`${BASE}/models?pageSize=200`, { headers: { 'x-goog-api-key': key } });
       const listData = await listRes.json();
