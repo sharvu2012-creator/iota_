@@ -89,6 +89,10 @@
       themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
     }
     updateChartTheme();
+    // Let other modules (the map) restyle themselves too.
+    try {
+      doc.dispatchEvent(new CustomEvent('sw:themechange', { detail: { theme: theme } }));
+    } catch (e) {}
   }
 
   var storedTheme = null;
@@ -105,114 +109,8 @@
   }
 
   /* ---------------------------------------------------------
-     2. Maps — before/after comparison slider
+     2. Maps — the interactive Leaflet map lives in js/map.js
      --------------------------------------------------------- */
-  var compare = doc.getElementById('compare');
-  var beforeScene = doc.getElementById('compareBefore');
-  var handle = doc.getElementById('compareHandle');
-  var pos = 50;
-
-  function setPos(p) {
-    pos = Math.max(0, Math.min(100, p));
-    if (beforeScene) beforeScene.style.clipPath = 'inset(0 ' + (100 - pos) + '% 0 0)';
-    if (handle) {
-      handle.style.left = pos + '%';
-      handle.setAttribute('aria-valuenow', String(Math.round(pos)));
-    }
-  }
-
-  if (compare) {
-    setPos(50);
-    var dragging = false;
-
-    var fromClientX = function (clientX) {
-      var r = compare.getBoundingClientRect();
-      if (!r.width) return;
-      setPos(((clientX - r.left) / r.width) * 100);
-    };
-
-    compare.addEventListener('pointerdown', function (e) {
-      dragging = true;
-      if (compare.setPointerCapture) { try { compare.setPointerCapture(e.pointerId); } catch (err) {} }
-      fromClientX(e.clientX);
-    });
-    compare.addEventListener('pointermove', function (e) { if (dragging) fromClientX(e.clientX); });
-    var endDrag = function (e) {
-      dragging = false;
-      if (compare.releasePointerCapture && e && e.pointerId !== undefined) {
-        try { compare.releasePointerCapture(e.pointerId); } catch (err) {}
-      }
-    };
-    compare.addEventListener('pointerup', endDrag);
-    compare.addEventListener('pointercancel', endDrag);
-
-    if (handle) {
-      handle.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowLeft') { e.preventDefault(); setPos(pos - 4); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); setPos(pos + 4); }
-        else if (e.key === 'Home') { e.preventDefault(); setPos(0); }
-        else if (e.key === 'End') { e.preventDefault(); setPos(100); }
-      });
-    }
-  }
-
-  /* ---------------------------------------------------------
-     2. Maps — layer switcher
-     --------------------------------------------------------- */
-  var LAYERS = {
-    truecolor: {
-      title: 'True Colour',
-      bar: 'legend-bar--truecolor',
-      ticks: ['Dark', '', 'Bright'],
-      caption: 'Natural-colour composite (bands 4, 3, 2) showing the land surface as the human eye would see it.'
-    },
-    ndvi: {
-      title: 'NDVI',
-      bar: 'legend-bar--ndvi',
-      ticks: ['−1', '0', '+1'],
-      caption: 'NDVI = (NIR − Red) / (NIR + Red). Greener areas are healthier vegetation; pale or tan areas are bare soil or stressed crops.'
-    },
-    ndwi: {
-      title: 'NDWI',
-      bar: 'legend-bar--ndwi',
-      ticks: ['−1', '0', '+1'],
-      caption: 'NDWI = (Green − NIR) / (Green + NIR). Blue marks open water and saturated soil.'
-    },
-    landcover: {
-      title: 'Land Cover',
-      bar: 'legend-bar--landcover',
-      ticks: ['Cropland', 'Water', 'Built-up'],
-      caption: 'A classified map of cropland, vegetation, water and built-up surfaces derived from the same scenes.'
-    }
-  };
-
-  var segButtons = doc.querySelectorAll('.seg-btn');
-  var legendTitle = doc.getElementById('legendTitle');
-  var legendBar = doc.getElementById('legendBar');
-  var legendTicks = doc.querySelectorAll('.legend-ticks span');
-  var mapCaption = doc.getElementById('mapCaption');
-
-  segButtons.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var key = btn.getAttribute('data-layer');
-      var meta = LAYERS[key];
-      if (!meta) return;
-
-      segButtons.forEach(function (b) {
-        var active = b === btn;
-        b.classList.toggle('is-active', active);
-        b.setAttribute('aria-selected', String(active));
-      });
-
-      if (compare) compare.setAttribute('data-layer', key);
-      if (legendTitle) legendTitle.textContent = meta.title;
-      if (legendBar) legendBar.className = 'legend-bar ' + meta.bar;
-      if (legendTicks.length === meta.ticks.length) {
-        meta.ticks.forEach(function (t, i) { legendTicks[i].textContent = t; });
-      }
-      if (mapCaption) mapCaption.textContent = meta.caption;
-    });
-  });
 
   /* ---------------------------------------------------------
      5. Ask Gemini — chat via /api/explain
@@ -263,6 +161,18 @@
     if (t) t.remove();
   }
 
+  // Turn whatever the API returned into something worth showing the user.
+  function serverErrorMessage(r) {
+    var data = r.data || {};
+    if (data.error) return String(data.error);
+    if (data.detail) return String(data.detail);
+    if (r.raw) {
+      var text = String(r.raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (text) return text.slice(0, 300);
+    }
+    return 'The AI tutor returned an error (HTTP ' + r.status + '). Please try again.';
+  }
+
   function askGemini(text) {
     text = (text || '').trim();
     if (!text || sending) return;
@@ -278,21 +188,28 @@
       body: JSON.stringify({ question: text })
     })
       .then(function (res) {
-        return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+        // Read as text first: an error page is not always JSON.
+        return res.text().then(function (raw) {
+          var data = null;
+          try { data = raw ? JSON.parse(raw) : null; } catch (e) { data = null; }
+          return { ok: res.ok, status: res.status, data: data, raw: raw };
+        });
       })
       .then(function (r) {
         hideTyping();
         var data = r.data || {};
         var reply = data.reply || data.response;
-        if (!r.ok || !reply) {
-          addBubble('bot', formatText(data.error || 'Sorry, something went wrong. Please try again.'), true);
-        } else {
+        if (r.ok && reply) {
           addBubble('bot', formatText(reply));
+        } else {
+          // Surface the server's own error text instead of a generic message.
+          addBubble('bot', formatText(serverErrorMessage(r)), true);
         }
       })
-      .catch(function () {
+      .catch(function (err) {
         hideTyping();
-        addBubble('bot', 'Sorry, I could not reach the AI tutor right now. Please try again in a moment.', true);
+        var why = err && err.message ? ' (' + err.message + ')' : '';
+        addBubble('bot', formatText('Sorry, I could not reach the AI tutor' + why + '. Please try again in a moment.'), true);
       })
       .then(function () { sending = false; });
   }
@@ -309,6 +226,16 @@
       if (chip) askGemini(chip.textContent);
     });
   }
+
+  /* Expose the chat so other modules (the map) can ask questions. */
+  window.SatelliteWatch = {
+    askGemini: askGemini,
+    openChat: function (question) {
+      if (question) askGemini(question);
+      var section = doc.getElementById('ai-tutor');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   /* ---------------------------------------------------------
      4. Results — Chart.js charts

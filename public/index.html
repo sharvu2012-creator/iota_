@@ -7,7 +7,9 @@
 <meta name="description" content="Satellite Data for Local Problem Solving — use free satellite imagery to investigate local environmental problems.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://unpkg.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -155,57 +157,45 @@
   <div class="container">
     <div class="section-head reveal">
       <span class="eyebrow">Maps</span>
-      <h2>Compare satellite imagery over time</h2>
-      <p>Switch between data layers and drag the handle to compare the same scene before and after.</p>
+      <h2>Explore the map</h2>
+      <p>Zoom in, switch base layers, add rain and vegetation overlays, then click anywhere for a local weather forecast.</p>
     </div>
 
-    <div class="segmented reveal" role="tablist" aria-label="Map layer">
-      <button class="seg-btn is-active" type="button" role="tab" aria-selected="true" data-layer="truecolor">True Colour</button>
-      <button class="seg-btn" type="button" role="tab" aria-selected="false" data-layer="ndvi">NDVI</button>
-      <button class="seg-btn" type="button" role="tab" aria-selected="false" data-layer="ndwi">NDWI</button>
-      <button class="seg-btn" type="button" role="tab" aria-selected="false" data-layer="landcover">Land Cover</button>
-    </div>
+    <div class="map-shell reveal">
+      <div class="map-frame">
+        <div id="map" class="map-canvas" role="region" aria-label="Interactive satellite map of the study area"></div>
 
-    <figure class="map-card reveal">
-      <div class="compare" id="compare" data-layer="truecolor">
-        <!-- After scene (base) -->
-        <div class="compare-scene compare-scene--after">
-          <img class="compare-img" src="images/after.jpg" alt="Satellite scene of the study area in 2026" onerror="this.remove()">
-          <div class="scene-art scene-art--after" aria-hidden="true"></div>
-        </div>
-        <!-- Before scene (clipped by the handle) -->
-        <div class="compare-scene compare-scene--before" id="compareBefore">
-          <img class="compare-img" src="images/before.jpg" alt="Satellite scene of the study area in 2023" onerror="this.remove()">
-          <div class="scene-art scene-art--before" aria-hidden="true"></div>
-        </div>
-
-        <span class="date-pill date-pill--left">15 Jun 2023</span>
-        <span class="date-pill date-pill--right">15 Jun 2026</span>
-
-        <div class="compare-handle" id="compareHandle" role="slider" tabindex="0"
-             aria-label="Comparison position between 2023 and 2026"
-             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
-          <span class="compare-line"></span>
-          <span class="compare-grip" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 6 4 12l5 6M15 6l5 6-5 6"/>
+        <!-- Floating place search -->
+        <div class="map-search" role="search">
+          <span class="map-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/><path d="m20 20-3.3-3.3"/>
             </svg>
           </span>
+          <input id="mapSearch" class="map-search-input" type="text" placeholder="Search a village or town&hellip;"
+                 autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false"
+                 aria-controls="mapSearchResults" aria-autocomplete="list" aria-label="Search for a place">
+          <button id="mapSearchClear" class="map-search-clear" type="button" aria-label="Clear search" hidden>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18"/>
+            </svg>
+          </button>
+          <div id="mapSearchResults" class="map-search-results" role="listbox" aria-label="Search results" hidden></div>
         </div>
+
+        <!-- Rain radar timeline -->
+        <div class="map-timemachine" id="radarTimemachine" hidden>
+          <button id="radarPlay" class="map-tm-btn" type="button" aria-label="Play radar animation" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5Z"/></svg>
+          </button>
+          <span class="map-tm-label" id="radarTimeLabel">&mdash;</span>
+        </div>
+
+        <div class="map-toast" id="mapToast" role="status" aria-live="polite" hidden></div>
       </div>
 
-      <div class="map-legend" id="mapLegend">
-        <span class="legend-title" id="legendTitle">NDVI</span>
-        <span class="legend-scale">
-          <span class="legend-bar legend-bar--ndvi" id="legendBar" aria-hidden="true"></span>
-          <span class="legend-ticks"><span>−1</span><span>0</span><span>+1</span></span>
-        </span>
-      </div>
-
-      <figcaption class="map-caption" id="mapCaption">
-        Natural-colour composite (bands 4, 3, 2) showing the land surface as the human eye would see it.
-      </figcaption>
-    </figure>
+      <p class="map-notes">Satellite background is for context (about 1 m, varies by area). Sentinel-2 is 10 m. Rain radar is coarse and may have gaps; NASA IMERG is about 10 km. Weather values are model data, not field measurements.</p>
+    </div>
   </div>
 </section>
 
@@ -518,7 +508,10 @@
   </div>
 </footer>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="js/config.js"></script>
 <script src="js/app.js"></script>
+<script src="js/map.js"></script>
 </body>
 </html>
