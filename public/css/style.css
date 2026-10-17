@@ -576,9 +576,8 @@ button { font: inherit; }
    Responsive
    ============================================================ */
 
-/* ≤ 767px — mobile */
-@media (max-width: 767px) {
-  :root { --gutter: 18px; }
+/* ≤ 900px — collapsed navbar (tablet & mobile) */
+@media (max-width: 900px) {
   .header-container { height: 64px; }
   .mobile-menu-btn { display: inline-flex; }
   .logo-text { font-size: 1.02rem; }
@@ -594,6 +593,11 @@ button { font: inherit; }
   }
   .site-header.nav-open .nav-links { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
   .nav-links a { padding: 13px 14px; font-size: 1rem; }
+}
+
+/* ≤ 767px — mobile layout */
+@media (max-width: 767px) {
+  :root { --gutter: 18px; }
 
   .hero-actions { flex-direction: column; align-items: stretch; }
   .hero-actions .btn { width: 100%; }

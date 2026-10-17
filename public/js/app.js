@@ -27,7 +27,7 @@
   var header = doc.getElementById('main-header');
   var toggle = doc.getElementById('mobileMenuBtn');
   var nav = doc.getElementById('primaryNav');
-  var DESKTOP_BREAKPOINT = 768;
+  var DESKTOP_BREAKPOINT = 900;
 
   function isOpen() { return !!(header && header.classList.contains('nav-open')); }
   function setOpen(open) {
