@@ -1041,14 +1041,14 @@
       'A farmer is at latitude {lat}, longitude {lon}. About {past} mm of rain fell in the past 7 days, and about {next} mm is forecast for the next 7 days. {advice} In 2-4 short sentences, explain what this means for irrigation and crop planning at this location.',
       { lat: lat.toFixed(4), lon: lon.toFixed(4), past: s.pastTotal.toFixed(1), next: s.nextTotal.toFixed(1), advice: s.advice });
     var api = window.SatelliteWatch;
-    if (api && typeof api.askGemini === 'function') {
+    if (api && typeof api.openChat === 'function') {
+      api.openChat(q);
+    } else if (api && typeof api.askGemini === 'function') {
       api.askGemini(q);
     } else {
       var input = doc.getElementById('chatInput');
       if (input) input.value = q;
     }
-    var sec = doc.getElementById('ai-tutor');
-    if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function openWeather(lat, lon) {

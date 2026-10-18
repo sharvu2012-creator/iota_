@@ -50,7 +50,7 @@
       <a href="#explore" data-i18n="nav.maps">Maps</a>
       <a href="#method" data-i18n="nav.method">Method</a>
       <a href="#results" data-i18n="nav.results">Results</a>
-      <a href="#ai-tutor" data-i18n="nav.ask">Ask Gemini</a>
+      <a href="#ai-tutor" data-open-chat aria-haspopup="dialog" data-i18n="nav.ask">Ask Gemini</a>
       <a href="#limits" data-i18n="nav.limits">Limits</a>
       <a href="#sources" data-i18n="nav.sources">Sources</a>
     </nav>
@@ -122,7 +122,7 @@
     <p class="hero-subtitle" data-i18n="hero.sub">See your neighbourhood from space &mdash; and turn free satellite imagery into answers.</p>
     <div class="hero-actions">
       <a href="#explore" class="btn btn-primary" data-i18n="hero.explore">Explore the maps</a>
-      <a href="#ai-tutor" class="btn btn-outline" data-i18n="hero.ask">Ask Gemini</a>
+      <a href="#ai-tutor" class="btn btn-outline" data-open-chat aria-haspopup="dialog" data-i18n="hero.ask">Ask Gemini</a>
     </div>
 
     <div class="hero-stats">
@@ -498,53 +498,6 @@
   </div>
 </section>
 
-<!-- ============ 5. ASK GEMINI ============ -->
-<section id="ai-tutor" class="section">
-  <div class="container">
-    <div class="section-head reveal">
-      <span class="eyebrow" data-i18n="chat.eyebrow">Ask Gemini</span>
-      <h2 data-i18n="chat.title">Ask AI about the results</h2>
-      <p data-i18n="chat.sub">Curious about NDVI, clouds or what the numbers mean? Ask our AI tutor.</p>
-    </div>
-
-    <div class="chat card reveal">
-      <div class="chat-messages" id="chatMessages" aria-live="polite">
-        <div class="bubble bubble--bot">
-          <span class="bubble-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="7" width="16" height="11" rx="3"/><path d="M12 7V4M9 13h.01M15 13h.01M9 16h6"/>
-            </svg>
-          </span>
-          <div class="bubble-body">
-            <p data-i18n="chat.welcome">Hello! I'm your AI tutor. Ask me anything about satellite imagery, NDVI, or the analysis results above.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="chat-suggestions" id="chatSuggestions" data-i18n-aria-label="chat.suggestAria" aria-label="Suggested questions">
-        <button class="chip" type="button" data-i18n="chat.chip1">What does NDVI actually measure?</button>
-        <button class="chip" type="button" data-i18n="chat.chip2">Why might the water area have shrunk?</button>
-        <button class="chip" type="button" data-i18n="chat.chip3">How reliable is this comparison?</button>
-      </div>
-
-      <form class="chat-input" id="chatForm">
-        <input type="text" id="chatInput" name="question" placeholder="Ask a question about satellite data..." autocomplete="off"
-               data-i18n-placeholder="chat.placeholder" data-i18n-aria-label="chat.inputAria" aria-label="Your question">
-        <button type="button" id="chatMic" class="btn btn-quiet chat-mic" data-i18n-aria-label="chat.mic" aria-label="Ask by voice" aria-pressed="false" hidden>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/>
-          </svg>
-        </button>
-        <button type="submit" id="chatSend" class="btn btn-primary btn-send" data-i18n-aria-label="chat.sendAria" aria-label="Send question">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 12l16-8-6 8 6 8-16-8Z"/>
-          </svg>
-        </button>
-      </form>
-    </div>
-  </div>
-</section>
-
 <!-- ============ 6. LIMITS ============ -->
 <section id="limits" class="section section--alt">
   <div class="container">
@@ -748,7 +701,7 @@
           <li><a href="#explore" data-i18n="nav.maps">Maps</a></li>
           <li><a href="#method" data-i18n="nav.method">Method</a></li>
           <li><a href="#results" data-i18n="nav.results">Results</a></li>
-          <li><a href="#ai-tutor" data-i18n="nav.ask">Ask Gemini</a></li>
+          <li><a href="#ai-tutor" data-open-chat aria-haspopup="dialog" data-i18n="nav.ask">Ask Gemini</a></li>
           <li><a href="#limits" data-i18n="footer.limits">Limitations</a></li>
         </ul>
       </div>
@@ -760,6 +713,111 @@
     </div>
   </div>
 </footer>
+
+<!-- ============ Ask AI popup (opens from the floating button) ============ -->
+<div class="chat-pop" id="ai-tutor" role="dialog" aria-labelledby="chatPopTitle" hidden>
+  <div class="chat-pop-head">
+    <span class="chat-pop-avatar" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="7" width="16" height="11" rx="3"/><path d="M12 7V4M9 13h.01M15 13h.01M9 16h6"/>
+      </svg>
+    </span>
+    <div class="chat-pop-text">
+      <h2 id="chatPopTitle" data-i18n="chat.title">Ask AI about the results</h2>
+      <p data-i18n="chat.sub">Curious about NDVI, clouds or what the numbers mean? Ask our AI tutor.</p>
+    </div>
+    <button class="chat-pop-close" type="button" id="chatPopClose" data-i18n-aria-label="chat.close" aria-label="Close chat">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="chat">
+    <div class="chat-messages" id="chatMessages" aria-live="polite">
+      <div class="bubble bubble--bot">
+        <span class="bubble-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="7" width="16" height="11" rx="3"/><path d="M12 7V4M9 13h.01M15 13h.01M9 16h6"/>
+          </svg>
+        </span>
+        <div class="bubble-body">
+          <p data-i18n="chat.welcome">Hello! I'm your AI tutor. Ask me anything about satellite imagery, NDVI, or the analysis results above.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-suggestions" id="chatSuggestions" data-i18n-aria-label="chat.suggestAria" aria-label="Suggested questions">
+      <button class="chip" type="button" data-i18n="chat.chip1">What does NDVI actually measure?</button>
+      <button class="chip" type="button" data-i18n="chat.chip2">Why might the water area have shrunk?</button>
+      <button class="chip" type="button" data-i18n="chat.chip3">How reliable is this comparison?</button>
+    </div>
+
+    <form class="chat-input" id="chatForm">
+      <input type="text" id="chatInput" name="question" placeholder="Ask a question about satellite data..." autocomplete="off"
+             data-i18n-placeholder="chat.placeholder" data-i18n-aria-label="chat.inputAria" aria-label="Your question">
+      <button type="button" id="chatMic" class="btn btn-quiet chat-mic" data-i18n-aria-label="chat.mic" aria-label="Ask by voice" aria-pressed="false" hidden>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/>
+        </svg>
+      </button>
+      <button type="submit" id="chatSend" class="btn btn-primary btn-send" data-i18n-aria-label="chat.sendAria" aria-label="Send question">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 12l16-8-6 8 6 8-16-8Z"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ Floating help button + menu ============ -->
+<div class="fab-wrap" id="fabWrap">
+  <p class="fab-tip" id="fabTip" role="status" hidden><span data-i18n="fab.tip">Need help? Ask AI</span></p>
+
+  <div class="fab-menu" id="fabMenu" role="menu" aria-labelledby="fabBtn" data-i18n-aria-label="fab.menuAria" aria-label="Help menu" hidden>
+    <button class="fab-item" type="button" role="menuitem" id="fabAsk">
+      <span class="fab-item-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.5l1.7 4.3 4.3 1.7-4.3 1.7L12 15.5l-1.7-4.3L6 9.5l4.3-1.7L12 3.5Z"/><path d="M18.5 16.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8.8-1.9Z"/>
+        </svg>
+      </span>
+      <span data-i18n="fab.ask">Ask AI</span>
+    </button>
+
+    <button class="fab-item" type="button" role="menuitem" id="fabFeedback">
+      <span class="fab-item-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 5.5v10H10l-5.5 4v-14Z"/><path d="M9.5 10h6M9.5 13h4"/>
+        </svg>
+      </span>
+      <span data-i18n="fab.feedback">Send feedback</span>
+    </button>
+
+    <a class="fab-item" id="fabGroup" role="menuitem" href="#" target="_blank" rel="noopener noreferrer">
+      <span class="fab-item-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11.5a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"/><path d="M3.5 19.5c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5"/><path d="M16.5 5.6a3.25 3.25 0 0 1 0 6.3M18 19.5c0-2-.8-3.9-2-5.2"/>
+        </svg>
+      </span>
+      <span data-i18n="fab.group">Join farmers' group</span>
+    </a>
+
+    <p class="fab-note" data-i18n="fab.note">Please don't share personal details in the group.</p>
+  </div>
+
+  <button class="fab" id="fabBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="fabMenu" data-i18n-aria-label="fab.open" aria-label="Open help menu">
+    <span class="fab-icon fab-icon--chat" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.5 11.8a8.2 8.2 0 0 1-11.9 7.3L3.5 20.5l1.4-5A8.2 8.2 0 1 1 20.5 11.8Z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>
+      </svg>
+    </span>
+    <span class="fab-icon fab-icon--close" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </svg>
+    </span>
+  </button>
+</div>
 
 <!-- QR code modal -->
 <div class="modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" hidden>
@@ -773,6 +831,31 @@
     <p class="modal-sub" data-i18n="qr.sub">Open iota&radic;-1 on a phone</p>
     <div class="qr-holder" id="qrHolder"></div>
     <p class="qr-note" id="qrNote">Loading&hellip;</p>
+  </div>
+</div>
+
+<!-- ============ Feedback modal ============ -->
+<div class="modal modal--form" id="feedbackModal" role="dialog" aria-modal="true" aria-labelledby="fbTitle" hidden>
+  <div class="modal-card modal-card--form">
+    <button class="modal-close" type="button" id="fbClose" data-i18n-aria-label="fb.close" aria-label="Close feedback form">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </svg>
+    </button>
+    <h3 id="fbTitle" data-i18n="fb.title">Send feedback</h3>
+    <p class="modal-sub" data-i18n="fb.sub">Tell us what worked and what did not.</p>
+
+    <div class="fb-holder" id="fbHolder">
+      <p class="fb-loading" id="fbLoading" data-i18n="fb.loading">Loading form&hellip;</p>
+      <iframe class="fb-frame" id="fbFrame" loading="lazy" title="Feedback form"
+              data-i18n-title="fb.frameTitle" hidden></iframe>
+    </div>
+
+    <p class="fb-soon" id="fbSoon" data-i18n="fb.soon" hidden>The feedback form is coming soon.</p>
+
+    <p class="fb-alt" id="fbAlt" hidden>
+      <a id="fbLink" href="#" target="_blank" rel="noopener noreferrer" data-i18n="fb.open">Open the form in a new tab</a>
+    </p>
   </div>
 </div>
 

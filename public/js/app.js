@@ -151,6 +151,14 @@
   var chatSuggestions = doc.getElementById('chatSuggestions');
   var sending = false;
 
+  // Conversation memory: the last few turns are sent with each new question
+  // so follow-ups keep their context. The answers themselves are never cut.
+  var chatHistory = [];
+  function rememberTurn(q, a) {
+    chatHistory.push({ role: 'user', text: q }, { role: 'assistant', text: a });
+    if (chatHistory.length > 16) chatHistory = chatHistory.slice(-16);
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -246,12 +254,14 @@
     // The selected language travels with the question, so the tutor
     // answers in the language the visitor is reading.
     const language = langName();
+    // Earlier turns, oldest first.
+    const history = chatHistory.slice();
 
     try {
       const res = await fetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, results, language })
+        body: JSON.stringify({ question, results, language, history })
       });
 
       const data = await res.json();
@@ -263,6 +273,7 @@
         // Normal reply bubble, answer text only. No slice, no truncation,
         // and the raw JSON is never displayed.
         addBubble('bot', formatText(data.answer));
+        rememberTurn(question, data.answer);
       } else {
         addBubble('bot', formatText(chatError()), true);
       }
@@ -481,11 +492,305 @@
   window.SatelliteWatch = {
     askGemini: askGemini,
     openChat: function (question) {
+      // Opens the popup panel (the frame is set up further down this file).
+      openAskPopup();
       if (question) askGemini(question);
-      var section = doc.getElementById('ai-tutor');
-      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
+  /* ---------------------------------------------------------
+     9. Floating help button — menu, first-visit tip, fullscreen
+     --------------------------------------------------------- */
+  var fabWrap = doc.getElementById('fabWrap');
+  var fabBtn = doc.getElementById('fabBtn');
+  var fabMenu = doc.getElementById('fabMenu');
+  var fabTip = doc.getElementById('fabTip');
+  var fabAsk = doc.getElementById('fabAsk');
+  var fabFeedback = doc.getElementById('fabFeedback');
+  var fabGroup = doc.getElementById('fabGroup');
+  var fabTipTimer = null;
+  var fabTouched = false;
+
+  /* ---------------------------------------------------------
+     11. Feedback modal — a Google Form in an iframe
+     --------------------------------------------------------- */
+  var fbModal = doc.getElementById('feedbackModal');
+  var fbClose = doc.getElementById('fbClose');
+  var fbFrame = doc.getElementById('fbFrame');
+  var fbLoading = doc.getElementById('fbLoading');
+  var fbSoon = doc.getElementById('fbSoon');
+  var fbAlt = doc.getElementById('fbAlt');
+  var fbLink = doc.getElementById('fbLink');
+  var fbTrigger = null;
+
+  // A link is "not filled in yet" when it is missing, empty, or still the
+  // placeholder from js/config.js.
+  function isPlaceholder(value) {
+    if (typeof value !== 'string') return true;
+    var v = value.trim();
+    return v === '' || v.indexOf('PASTE_') !== -1;
+  }
+
+  function openFeedbackModal() {
+    if (!fbModal) return;
+
+    var embed = null;
+    var formLink = null;
+    try {
+      embed = window.CONFIG && window.CONFIG.feedbackFormEmbedUrl;
+      formLink = window.CONFIG && window.CONFIG.feedbackFormLink;
+    } catch (e) {}
+
+    if (isPlaceholder(embed)) {
+      // No form to show yet — a friendly line instead.
+      if (fbFrame) { fbFrame.hidden = true; fbFrame.removeAttribute('src'); }
+      if (fbLoading) fbLoading.hidden = true;
+      if (fbSoon) fbSoon.hidden = false;
+      if (fbAlt) fbAlt.hidden = true;
+    } else {
+      if (fbSoon) fbSoon.hidden = true;
+      if (fbFrame) {
+        fbFrame.hidden = false;
+        if (fbFrame.getAttribute('src') !== embed) fbFrame.setAttribute('src', embed);
+      }
+      if (fbLoading) fbLoading.hidden = false;   // sits behind the iframe
+      if (fbAlt) fbAlt.hidden = isPlaceholder(formLink);
+      if (fbLink && !isPlaceholder(formLink)) fbLink.href = formLink;
+    }
+
+    fbTrigger = doc.activeElement;
+    fbModal.hidden = false;
+    doc.body.classList.add('is-modal-open');
+    if (typeof hideFabTip === 'function') hideFabTip();
+    if (fbClose) fbClose.focus();
+  }
+
+  function closeFeedbackModal() {
+    if (!fbModal || fbModal.hidden) return;
+    fbModal.hidden = true;
+    doc.body.classList.remove('is-modal-open');
+    if (fbTrigger && typeof fbTrigger.focus === 'function') fbTrigger.focus();
+  }
+
+  if (fbModal) {
+    if (fbClose) fbClose.addEventListener('click', closeFeedbackModal);
+    // Clicking the dark backdrop closes it.
+    fbModal.addEventListener('click', function (e) {
+      if (e.target === fbModal) closeFeedbackModal();
+    });
+  }
+  if (fbFrame) {
+    fbFrame.addEventListener('load', function () {
+      if (fbLoading) fbLoading.hidden = true;
+    });
+  }
+  doc.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    closeFeedbackModal();
+  });
+
+  /* ---------------------------------------------------------
+     12. Farmers' group link
+     --------------------------------------------------------- */
+  function openFarmersGroup(e) {
+    var href = null;
+    try { href = window.CONFIG && window.CONFIG.whatsappLink; } catch (err) {}
+
+    if (isPlaceholder(href)) {
+      // Nothing to open yet.
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      dispatchToast(tr('fab.groupSoon', 'Group link coming soon'));
+    }
+    // A real link opens in its own tab (target/rel are on the element).
+    fabClose(false);
+  }
+
+  // Point the menu link at the configured group as soon as it is set.
+  if (fabGroup) {
+    var groupHref = null;
+    try { groupHref = window.CONFIG && window.CONFIG.whatsappLink; } catch (err) {}
+    fabGroup.setAttribute('href', isPlaceholder(groupHref) ? '#' : groupHref);
+  }
+
+  function fabIsOpen() { return !!(fabMenu && !fabMenu.hidden); }
+
+  function fabLabel() {
+    return fabIsOpen() ? tr('fab.close', 'Close help menu') : tr('fab.open', 'Open help menu');
+  }
+
+  function fabOpen(focusFirst) {
+    if (!fabMenu || !fabBtn) return;
+    fabMenu.hidden = false;
+    fabBtn.classList.add('is-open');
+    fabBtn.setAttribute('aria-expanded', 'true');
+    fabBtn.setAttribute('aria-label', fabLabel());
+    hideFabTip();
+    if (focusFirst) {
+      var first = fabMenu.querySelector('.fab-item');
+      if (first) first.focus();
+    }
+  }
+
+  function fabClose(returnFocus) {
+    if (!fabMenu || !fabBtn) return;
+    if (fabMenu.hidden) return;
+    fabMenu.hidden = true;
+    fabBtn.classList.remove('is-open');
+    fabBtn.setAttribute('aria-expanded', 'false');
+    fabBtn.setAttribute('aria-label', fabLabel());
+    if (returnFocus) fabBtn.focus();
+  }
+
+  /* ---------- first-visit tip (once per session) ---------- */
+  function fabTipSeen() {
+    try { return window.sessionStorage.getItem('sw-fab-tip') === '1'; } catch (e) { return true; }
+  }
+  function fabTipDone() {
+    try { window.sessionStorage.setItem('sw-fab-tip', '1'); } catch (e) {}
+  }
+  function hideFabTip() {
+    if (fabTipTimer) { window.clearTimeout(fabTipTimer); fabTipTimer = null; }
+    if (fabTip) fabTip.hidden = true;
+  }
+  function scheduleFabTip() {
+    if (!fabTip || fabTipSeen()) return;
+    fabTipTimer = window.setTimeout(function () {
+      fabTipTimer = null;
+      if (fabTouched || fabIsOpen()) return;
+      fabTipDone();
+      fabTip.hidden = false;
+      fabTipTimer = window.setTimeout(hideFabTip, 8000);
+    }, 6000);
+  }
+
+  /* ---------- fullscreen: the button steps aside ---------- */
+  function syncFabFullscreen() {
+    if (!fabWrap) return;
+    var fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
+    fabWrap.hidden = !!fsEl;
+    if (fsEl) { fabClose(false); hideFabTip(); }
+  }
+
+  if (fabBtn && fabMenu) {
+    fabBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      fabTouched = true;
+      if (fabIsOpen()) fabClose(true); else fabOpen(false);
+    });
+
+    // Clicks inside the menu are not "clicks outside".
+    fabMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+
+    if (fabAsk) {
+      fabAsk.addEventListener('click', function () { fabClose(false); openAskPopup(); });
+    }
+    if (fabFeedback) {
+      fabFeedback.addEventListener('click', function () { fabClose(false); openFeedbackModal(); });
+    }
+    if (fabGroup) {
+      fabGroup.addEventListener('click', function (e) { openFarmersGroup(e); });
+    }
+
+    // Click outside closes the menu.
+    doc.addEventListener('click', function () {
+      fabTouched = true;
+      fabClose(false);
+    });
+
+    doc.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Esc') return;
+      if (fabIsOpen()) { fabClose(true); return; }
+      hideFabTip();
+    });
+
+    // Escape also works from inside the menu, and arrow keys walk the items.
+    fabMenu.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        e.preventDefault();
+        fabClose(true);
+        return;
+      }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      var items = Array.prototype.slice.call(fabMenu.querySelectorAll('.fab-item'));
+      if (!items.length) return;
+      var i = items.indexOf(doc.activeElement);
+      if (i === -1) return;
+      e.preventDefault();
+      var step = e.key === 'ArrowDown' ? 1 : -1;
+      items[(i + step + items.length) % items.length].focus();
+    });
+
+    // Moving focus away with Tab closes the menu too.
+    doc.addEventListener('focusin', function (e) {
+      if (fabIsOpen() && fabWrap && !fabWrap.contains(e.target)) fabClose(false);
+    });
+
+    doc.addEventListener('fullscreenchange', syncFabFullscreen);
+    doc.addEventListener('webkitfullscreenchange', syncFabFullscreen);
+    syncFabFullscreen();
+
+    doc.addEventListener('sw:language', function () {
+      fabBtn.setAttribute('aria-label', fabLabel());
+    });
+
+    scheduleFabTip();
+  }
+
+  /* ---------------------------------------------------------
+     10. Ask AI popup — the frame around the chat
+     The chat code above is untouched: same endpoint, same
+     history, same typing indicator, same voice buttons.
+     --------------------------------------------------------- */
+  var chatPop = doc.getElementById('ai-tutor');
+  var chatPopClose = doc.getElementById('chatPopClose');
+  var chatPopTrigger = null;      // focus goes back here on close
+
+  function chatPopIsOpen() { return !!(chatPop && !chatPop.hidden); }
+
+  function openAskPopup() {
+    if (!chatPop) return;
+    if (!chatPopIsOpen()) {
+      chatPopTrigger = doc.activeElement;
+      chatPop.hidden = false;
+      if (fabWrap) fabWrap.classList.add('is-chat-open');
+      if (typeof hideFabTip === 'function') hideFabTip();
+    }
+    if (chatInput) {
+      try { chatInput.focus({ preventScroll: true }); } catch (e) { chatInput.focus(); }
+    }
+    scrollToLatest();
+  }
+
+  function closeAskPopup(returnFocus) {
+    if (!chatPopIsOpen()) return;
+    chatPop.hidden = true;
+    if (fabWrap) fabWrap.classList.remove('is-chat-open');
+    stopSpeaking();
+    if (returnFocus) {
+      var back = (chatPopTrigger && doc.contains(chatPopTrigger)) ? chatPopTrigger : fabBtn;
+      if (back && typeof back.focus === 'function') back.focus();
+    }
+  }
+
+  if (chatPop) {
+    if (chatPopClose) {
+      chatPopClose.addEventListener('click', function () { closeAskPopup(true); });
+    }
+
+    // Every "Ask Gemini" link or button opens the popup (no scrolling).
+    doc.addEventListener('click', function (e) {
+      var opener = e.target && e.target.closest ? e.target.closest('[data-open-chat], a[href="#ai-tutor"]') : null;
+      if (!opener) return;
+      e.preventDefault();
+      closeNav();
+      openAskPopup();
+    });
+
+    doc.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Esc') return;
+      if (chatPopIsOpen()) closeAskPopup(true);
+    });
+  }
 
   /* ---------------------------------------------------------
      4. Results — Chart.js charts

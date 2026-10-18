@@ -55,6 +55,14 @@ const CONFIG = {
     rateLimitPerHour: 50
   },
 
+  /* ----- Outreach links -----
+     Paste your own links in the three values below.
+     While a value still contains "PASTE_", the page shows a
+     friendly "coming soon" message instead of using it. */
+  whatsappLink: "PASTE_WHATSAPP_GROUP_LINK_HERE",
+  feedbackFormEmbedUrl: "PASTE_GOOGLE_FORM_EMBED_URL_HERE",
+  feedbackFormLink: "PASTE_GOOGLE_FORM_LINK_HERE",
+
   /* ----- Problem statement ----- */
   problemStatement: `
     <p>Punjab's agricultural belt — once called the breadbasket of India —

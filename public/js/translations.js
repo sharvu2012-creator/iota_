@@ -245,6 +245,27 @@ var SW_TRANSLATIONS = {
     'chat.stopReading': 'Stop reading aloud',
     'chat.listenLabel': 'Listen',
     'chat.stopLabel': 'Stop',
+    'chat.close': 'Close chat',
+
+    /* Floating help button + menu */
+    'fab.tip': 'Need help? Ask AI',
+    'fab.menuAria': 'Help menu',
+    'fab.ask': 'Ask AI',
+    'fab.feedback': 'Send feedback',
+    'fab.group': "Join farmers' group",
+    'fab.note': "Please don't share personal details in the group.",
+    'fab.open': 'Open help menu',
+    'fab.close': 'Close help menu',
+    'fab.groupSoon': 'Group link coming soon',
+
+    /* Feedback form modal */
+    'fb.title': 'Send feedback',
+    'fb.sub': 'Tell us what worked and what did not.',
+    'fb.loading': 'Loading form…',
+    'fb.frameTitle': 'Feedback form',
+    'fb.soon': 'The feedback form is coming soon.',
+    'fb.open': 'Open the form in a new tab',
+    'fb.close': 'Close feedback form',
 
     'limits.title': 'Limitations of satellite data',
     'limits.sub': 'Satellite imagery shows patterns. It rarely proves a cause on its own — read these before drawing conclusions.',
@@ -560,6 +581,27 @@ var SW_TRANSLATIONS = {
     'chat.stopReading': 'पढ़ना बंद करें',
     'chat.listenLabel': 'सुनें',
     'chat.stopLabel': 'रोकें',
+    'chat.close': 'चैट बंद करें',
+
+    /* Floating help button + menu */
+    'fab.tip': 'मदद चाहिए? AI से पूछें',
+    'fab.menuAria': 'सहायता मेन्यू',
+    'fab.ask': 'AI से पूछें',
+    'fab.feedback': 'सुझाव भेजें',
+    'fab.group': 'किसान समूह से जुड़ें',
+    'fab.note': 'कृपया समूह में अपनी निजी जानकारी साझा न करें।',
+    'fab.open': 'सहायता मेन्यू खोलें',
+    'fab.close': 'सहायता मेन्यू बंद करें',
+    'fab.groupSoon': 'समूह लिंक जल्द आएगा',
+
+    /* Feedback form modal */
+    'fb.title': 'सुझाव भेजें',
+    'fb.sub': 'बताइए क्या अच्छा लगा और क्या नहीं।',
+    'fb.loading': 'फ़ॉर्म लोड हो रहा है…',
+    'fb.frameTitle': 'सुझाव फ़ॉर्म',
+    'fb.soon': 'सुझाव फ़ॉर्म जल्द उपलब्ध होगा।',
+    'fb.open': 'फ़ॉर्म नए टैब में खोलें',
+    'fb.close': 'सुझाव फ़ॉर्म बंद करें',
 
     'limits.title': 'उपग्रह डेटा की सीमाएँ',
     'limits.sub': 'उपग्रह चित्र पैटर्न दिखाते हैं। वे अकेले कारण साबित नहीं करते — नतीजे निकालने से पहले ये पढ़ें।',
@@ -995,6 +1037,27 @@ var SW_TRANSLATIONS = {
     'chat.stopReading': 'ਪੜ੍ਹਨਾ ਬੰਦ ਕਰੋ',
     'chat.listenLabel': 'ਸੁਣੋ',
     'chat.stopLabel': 'ਰੋਕੋ',
+    'chat.close': 'ਚੈਟ ਬੰਦ ਕਰੋ',
+
+    /* Floating help button + menu */
+    'fab.tip': 'ਮਦਦ ਚਾਹੀਦੀ ਹੈ? AI ਤੋਂ ਪੁੱਛੋ',
+    'fab.menuAria': 'ਸਹਾਇਤਾ ਮੀਨੂ',
+    'fab.ask': 'AI ਤੋਂ ਪੁੱਛੋ',
+    'fab.feedback': 'ਸੁਝਾਅ ਭੇਜੋ',
+    'fab.group': 'ਕਿਸਾਨ ਗਰੁੱਪ ਨਾਲ ਜੁੜੋ',
+    'fab.note': 'ਕਿਰਪਾ ਕਰਕੇ ਗਰੁੱਪ ਵਿੱਚ ਆਪਣੀ ਨਿੱਜੀ ਜਾਣਕਾਰੀ ਸਾਂਝੀ ਨਾ ਕਰੋ।',
+    'fab.open': 'ਸਹਾਇਤਾ ਮੀਨੂ ਖੋਲ੍ਹੋ',
+    'fab.close': 'ਸਹਾਇਤਾ ਮੀਨੂ ਬੰਦ ਕਰੋ',
+    'fab.groupSoon': 'ਗਰੁੱਪ ਲਿੰਕ ਜਲਦੀ ਆਵੇਗਾ',
+
+    /* Feedback form modal */
+    'fb.title': 'ਸੁਝਾਅ ਭੇਜੋ',
+    'fb.sub': 'ਦੱਸੋ ਕੀ ਚੰਗਾ ਲੱਗਾ ਅਤੇ ਕੀ ਨਹੀਂ।',
+    'fb.loading': 'ਫ਼ਾਰਮ ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…',
+    'fb.frameTitle': 'ਸੁਝਾਅ ਫ਼ਾਰਮ',
+    'fb.soon': 'ਸੁਝਾਅ ਫ਼ਾਰਮ ਜਲਦੀ ਉਪਲਬਧ ਹੋਵੇਗਾ।',
+    'fb.open': 'ਫ਼ਾਰਮ ਨਵੀਂ ਟੈਬ ਵਿੱਚ ਖੋਲ੍ਹੋ',
+    'fb.close': 'ਸੁਝਾਅ ਫ਼ਾਰਮ ਬੰਦ ਕਰੋ',
 
     'limits.title': 'ਸੈਟੇਲਾਈਟ ਡੇਟਾ ਦੀਆਂ ਹੱਦਾਂ',
     'limits.sub': 'ਸੈਟੇਲਾਈਟ ਤਸਵੀਰਾਂ ਨਮੂਨੇ ਦਿਖਾਉਂਦੀਆਂ ਹਨ। ਇਹ ਆਪਣੇ ਆਪ ਕਾਰਨ ਸਾਬਤ ਨਹੀਂ ਕਰਦੀਆਂ — ਸਿੱਟੇ ਕੱਢਣ ਤੋਂ ਪਹਿਲਾਂ ਇਹ ਪੜ੍ਹੋ।',
