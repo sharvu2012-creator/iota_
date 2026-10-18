@@ -1,0 +1,19 @@
+{
+  "name": "iota√-1",
+  "short_name": "iota",
+  "description": "Small changes, seen from space — free satellite data for local problem solving.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1a14",
+  "theme_color": "#0b1a14",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -27,8 +27,24 @@
   var ZOOM = (typeof study.zoom === 'number') ? study.zoom : 11;
   var MAX_ZOOM = 18;
 
+  // Text helper — the English wording below is always the fallback.
+  function T(key, fallback, vars) {
+    try {
+      if (window.SW_I18N) return window.SW_I18N.t(key, vars, fallback);
+    } catch (e) {}
+    return fallback;
+  }
+  function langData(key) {
+    try {
+      if (window.SW_I18N && typeof window.SW_I18N.data === 'function') return window.SW_I18N.data(key);
+    } catch (e) {}
+    return null;
+  }
+  function onLanguage(fn) { doc.addEventListener('sw:language', function () { fn(); }); }
+
   if (typeof L === 'undefined') {
-    host.innerHTML = '<div class="map-fallback"><p>The interactive map could not load. Please refresh the page.</p></div>';
+    host.innerHTML = '<div class="map-fallback"><p>' +
+      T('map.fallback', 'The interactive map could not load. Please refresh the page.') + '</p></div>';
     return;
   }
 
@@ -117,6 +133,43 @@
     keyboard: true
   });
 
+  /* ---------------------------------------------------------
+     Publish the map centre
+     The irrigation alert follows wherever the visitor moves the
+     map to. Publishing never moves the view itself.
+     --------------------------------------------------------- */
+  var centreTimer = null;
+  var lastPublished = { lat: CENTER[0], lng: CENTER[1] };
+
+  function publishCentre(force) {
+    var c = map.getCenter();
+    if (!force) {
+      var moved = Math.abs(c.lat - lastPublished.lat) > 0.02 ||
+        Math.abs(c.lng - lastPublished.lng) > 0.02;
+      if (!moved) return;
+    }
+    lastPublished = { lat: c.lat, lng: c.lng };
+    try {
+      doc.dispatchEvent(new CustomEvent('sw:mapcentre', {
+        detail: { lat: c.lat, lng: c.lng }
+      }));
+    } catch (e) {}
+  }
+
+  // Debounced: a drag fires moveend repeatedly while the finger is down.
+  map.on('moveend zoomend', function () {
+    if (centreTimer) window.clearTimeout(centreTimer);
+    centreTimer = window.setTimeout(function () { publishCentre(false); }, 800);
+  });
+
+  // Other modules can read the centre directly (used on start-up, before
+  // any move event has fired).
+  window.SatelliteWatch = window.SatelliteWatch || {};
+  window.SatelliteWatch.getCenter = function () {
+    var c = map.getCenter();
+    return { lat: c.lat, lng: c.lng };
+  };
+
   /* ---------- Base layers ---------- */
   var satellite = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -186,9 +239,9 @@
   };
 
   var overlayMeta = [
-    { name: 'Rain radar', layer: radar, input: null },
-    { name: 'NASA IMERG rainfall', layer: rainfall, input: null },
-    { name: 'MODIS NDVI', layer: veg, input: null }
+    { name: 'Rain radar', key: 'map.radarName', layer: radar, input: null },
+    { name: 'NASA IMERG rainfall', key: 'map.imergName', layer: rainfall, input: null },
+    { name: 'MODIS NDVI', key: 'map.ndviName', layer: veg, input: null }
   ];
   function metaFor(layer) {
     for (var i = 0; i < overlayMeta.length; i++) { if (overlayMeta[i].layer === layer) return overlayMeta[i]; }
@@ -211,8 +264,8 @@
       var wrap = L.DomUtil.create('div', 'leaflet-control map-opacity');
       var btn = L.DomUtil.create('button', 'map-opacity-toggle', wrap);
       btn.type = 'button';
-      btn.title = 'Layer opacity';
-      btn.setAttribute('aria-label', 'Layer opacity');
+      btn.title = T('map.opacity', 'Layer opacity');
+      btn.setAttribute('aria-label', T('map.opacity', 'Layer opacity'));
       btn.setAttribute('aria-expanded', 'false');
       btn.innerHTML = ICON_OPACITY;
 
@@ -222,12 +275,13 @@
       overlayMeta.forEach(function (meta) {
         var row = L.DomUtil.create('label', 'map-opacity-row', panel);
         var name = L.DomUtil.create('span', 'map-opacity-name', row);
-        name.textContent = meta.name;
+        var label = T(meta.key, meta.name);
+        name.textContent = label;
         var input = L.DomUtil.create('input', 'map-opacity-range', row);
         input.type = 'range';
         input.min = '0'; input.max = '100'; input.step = '5';
         input.value = String(Math.round(meta.layer.options.opacity * 100));
-        input.setAttribute('aria-label', meta.name + ' opacity');
+        input.setAttribute('aria-label', T('map.opacityOf', '{name} opacity', { name: label }));
         input.disabled = !m.hasLayer(meta.layer);
         L.DomEvent.on(input, 'input', function () {
           meta.layer.setOpacity(parseInt(input.value, 10) / 100);
@@ -248,6 +302,394 @@
   });
   map.addControl(new OpacityControl());
 
+  /* ---------------------------------------------------------
+     Layer information cards
+     Every layer in the switcher gets a small "i" button that opens
+     a card with its source, resolution, update rate, best use and
+     one limitation. Facts come from CONFIG.layerFacts.
+     --------------------------------------------------------- */
+  var layerFacts = CFG.layerFacts || {};
+  var infoPop = null;
+  var infoBtn = null;
+
+  // Hindi / Punjabi facts live in js/translations.js; English in js/config.js.
+  function factsFor(name) {
+    var translated = langData('layerFacts');
+    if (translated && translated[name]) return translated[name];
+    return layerFacts[name];
+  }
+
+  function closeLayerInfo() {
+    if (infoPop && infoPop.parentNode) infoPop.parentNode.removeChild(infoPop);
+    if (infoBtn) {
+      infoBtn.classList.remove('is-active');
+      infoBtn.setAttribute('aria-expanded', 'false');
+    }
+    infoPop = null;
+    infoBtn = null;
+  }
+
+  // Placed in page coordinates next to its button, so the map frame's
+  // overflow can never clip it.
+  function positionInfoPop(pop, btn) {
+    var rect = btn.getBoundingClientRect();
+    var sx = window.pageXOffset || doc.documentElement.scrollLeft || 0;
+    var sy = window.pageYOffset || doc.documentElement.scrollTop || 0;
+    var w = pop.offsetWidth;
+    var h = pop.offsetHeight;
+
+    var left = rect.left + sx - w - 12;               // prefer the left of the control
+    if (left < sx + 8) left = Math.min(rect.left + sx, sx + window.innerWidth - w - 8);
+    if (left < sx + 8) left = sx + 8;
+
+    var top = rect.top + sy - 8;
+    var lowest = sy + window.innerHeight - h - 8;
+    if (top > lowest) top = lowest;        // slide up so the bottom stays in view
+    if (top < sy + 8) top = sy + 8;        // but never above the top of the screen
+
+    pop.style.left = Math.round(left) + 'px';
+    pop.style.top = Math.round(top) + 'px';
+  }
+
+  function openLayerInfo(name, facts, btn) {
+    closeLayerInfo();
+
+    var pop = doc.createElement('div');
+    pop.className = 'layer-info-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', T('map.layerInfoOf', '{name} — layer information', { name: name }));
+
+    var rows = [
+      [T('layer.source', 'Source'), facts.source],
+      [T('layer.resolution', 'Resolution'), facts.resolution],
+      [T('layer.updates', 'How often it updates'), facts.updates],
+      [T('layer.goodFor', 'What it is good for'), facts.goodFor],
+      [T('layer.limit', 'One limitation'), facts.limit]
+    ];
+    var html = '<h4 class="layer-info-title">' + esc(name) + '</h4><dl class="layer-info-list">';
+    rows.forEach(function (row) {
+      if (!row[1]) return;
+      html += '<dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd>';
+    });
+    html += '</dl>';
+    pop.innerHTML = html;
+
+    pop.style.visibility = 'hidden';
+    doc.body.appendChild(pop);
+    positionInfoPop(pop, btn);
+    pop.style.visibility = '';
+
+    infoPop = pop;
+    infoBtn = btn;
+    btn.classList.add('is-active');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  function toggleLayerInfo(name, facts, btn) {
+    if (infoBtn === btn && infoPop) closeLayerInfo();
+    else openLayerInfo(name, facts, btn);
+  }
+
+  // Any layer add or remove makes Leaflet rebuild the control's list,
+  // so the buttons are re-attached (idempotent).
+  function setupLayerInfo() {
+    var labels = doc.querySelectorAll('.leaflet-control-layers-base label, .leaflet-control-layers-overlays label');
+    Array.prototype.forEach.call(labels, function (label) {
+      var parent = label.parentNode;
+      if (!parent) return;
+
+      var name = (label.textContent || '').replace(/\s+/g, ' ').trim();
+      var facts = factsFor(name);
+      if (!facts) return;
+
+      // Already set up: just refresh the button wording for the new language.
+      if (parent.classList.contains('layer-row')) {
+        var existing = parent.querySelector('.layer-info-btn');
+        if (existing) {
+          existing.setAttribute('aria-label', T('map.aboutLayer', 'About the {name} layer', { name: name }));
+        }
+        return;
+      }
+
+      var row = doc.createElement('div');
+      row.className = 'layer-row';
+      parent.insertBefore(row, label);
+      row.appendChild(label);
+
+      var btn = doc.createElement('button');
+      btn.type = 'button';
+      btn.className = 'layer-info-btn';
+      btn.textContent = 'i';
+      btn.setAttribute('aria-label', T('map.aboutLayer', 'About the {name} layer', { name: name }));
+      btn.setAttribute('aria-expanded', 'false');
+      L.DomEvent.on(btn, 'click', function (ev) {
+        L.DomEvent.stop(ev);
+        ev.preventDefault();
+        // Look the facts up now, so the card follows the current language.
+        toggleLayerInfo(name, factsFor(name), btn);
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  setupLayerInfo();
+  map.on('layeradd layerremove', function () { closeLayerInfo(); setupLayerInfo(); });
+
+  // A language change re-labels the "i" buttons and closes any open card,
+  // since its text would otherwise be in the old language.
+  onLanguage(function () {
+    closeLayerInfo();
+    setupLayerInfo();
+  });
+
+  // Capture phase: Leaflet stops clicks inside its controls from bubbling,
+  // which would otherwise hide "click outside to close".
+  doc.addEventListener('click', function (e) {
+    if (!infoPop) return;
+    if (infoPop.contains(e.target)) return;
+    if (infoBtn && infoBtn.contains(e.target)) return;
+    closeLayerInfo();
+  }, true);
+  doc.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.key === 'Esc') closeLayerInfo();
+  });
+
+  /* ---------------------------------------------------------
+     Compare two spots (rainfall side by side)
+     The user taps two points; Open-Meteo daily rainfall for the
+     past 7 and next 7 days is then charted as grouped bars.
+     The view is never moved here — both points are already visible.
+     --------------------------------------------------------- */
+  var compareStart = doc.getElementById('compareStart');
+  var compareResetBtn = doc.getElementById('compareReset');
+  var compareHint = doc.getElementById('compareHint');
+  var comparePointsEl = doc.getElementById('comparePoints');
+  var compareAEl = doc.getElementById('compareA');
+  var compareBEl = doc.getElementById('compareB');
+  var compareStatus = doc.getElementById('compareStatus');
+  var compareChartBox = doc.getElementById('compareChartBox');
+  var compareCanvas = doc.getElementById('compareChart');
+  var compareVerdict = doc.getElementById('compareVerdict');
+
+  var COMPARE_HINT = 'Press “Pick two spots”, then tap any two places on the map.';
+  var COMPARE_COLORS = ['#2e9e5b', '#2a7fba'];
+  var COMPARE_LETTERS = ['A', 'B'];
+
+  function compareHintText() { return T('compare.hint', COMPARE_HINT); }
+  function spotName(i) {
+    return T(i === 0 ? 'compare.spotA' : 'compare.spotB', i === 0 ? 'Spot A' : 'Spot B');
+  }
+
+  var compareArmed = false;
+  var comparePts = [];
+  var compareMarkers = [];
+  var compareChart = null;
+  var compareToken = 0;
+  var lastCompare = null;
+
+  function comparePin(letter, colour) {
+    return L.divIcon({
+      className: 'compare-pin compare-pin--' + letter.toLowerCase(),
+      html: '<span>' + letter + '</span>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+  }
+
+  function resetCompare() {
+    compareToken += 1;
+    compareArmed = false;
+    comparePts = [];
+    compareMarkers.forEach(function (m) {
+      if (map.hasLayer(m)) map.removeLayer(m);
+    });
+    compareMarkers = [];
+    if (compareChart) { compareChart.destroy(); compareChart = null; }
+    lastCompare = null;
+    if (host) host.classList.remove('is-picking');
+    if (compareStart) { compareStart.textContent = T('compare.start', 'Pick two spots'); compareStart.hidden = false; }
+    if (compareResetBtn) compareResetBtn.hidden = true;
+    if (comparePointsEl) comparePointsEl.hidden = true;
+    if (compareAEl) { compareAEl.hidden = true; compareAEl.textContent = ''; }
+    if (compareBEl) { compareBEl.hidden = true; compareBEl.textContent = ''; }
+    if (compareStatus) { compareStatus.hidden = true; compareStatus.textContent = ''; }
+    if (compareChartBox) compareChartBox.hidden = true;
+    if (compareVerdict) { compareVerdict.hidden = true; compareVerdict.textContent = ''; }
+    if (compareHint) compareHint.textContent = compareHintText();
+  }
+
+  function addComparePoint(latlng) {
+    if (!compareArmed || comparePts.length > 1) return;
+    var i = comparePts.length;
+    comparePts.push(latlng);
+
+    compareMarkers.push(L.marker(latlng, {
+      icon: comparePin(COMPARE_LETTERS[i], COMPARE_COLORS[i]),
+      keyboard: false,
+      zIndexOffset: 600
+    }).addTo(map));
+
+    var pill = (i === 0) ? compareAEl : compareBEl;
+    if (pill) {
+      pill.hidden = false;
+      pill.textContent = COMPARE_LETTERS[i] + ': ' + latlng.lat.toFixed(4) + ', ' + latlng.lng.toFixed(4);
+    }
+    if (comparePointsEl) comparePointsEl.hidden = false;
+
+    if (comparePts.length === 1) {
+      if (compareHint) compareHint.textContent = T('compare.hintA', 'Spot A placed. Now tap the second spot (B).');
+      return;
+    }
+
+    compareArmed = false;
+    if (host) host.classList.remove('is-picking');
+    if (compareStart) compareStart.textContent = T('compare.start', 'Pick two spots');
+    if (compareHint) compareHint.textContent = T('compare.hintBoth', 'Past 7 days and next 7 days of rain, side by side.');
+    fetchCompareRain();
+  }
+
+  function verdictSentence(aTotal, bTotal) {
+    var diff = Math.abs(aTotal - bTotal);
+    if (diff < 0.5) {
+      return T('compare.same', 'Over these two weeks the two spots got or will get almost the same rain — about {v} mm each.',
+        { v: aTotal.toFixed(1) });
+    }
+    var aWetter = aTotal > bTotal;
+    var wetter = spotName(aWetter ? 0 : 1);
+    var drier = spotName(aWetter ? 1 : 0);
+    var high = Math.max(aTotal, bTotal);
+    var low = Math.min(aTotal, bTotal);
+    return T('compare.more', 'Over these two weeks, {wetter} got or will get about {d} mm more rain than {drier} ({high} mm against {low} mm).',
+      { wetter: wetter, drier: drier, d: diff.toFixed(1), high: high.toFixed(1), low: low.toFixed(1) });
+  }
+
+  function renderCompare(a, b) {
+    var days = a.days || [];
+    var labels = days.map(function (d) { return shortDate(d.date); });
+    var aVals = days.map(function (d) { return Math.round(num(d.precip) * 10) / 10; });
+    var bVals = (b.days || []).map(function (d) { return Math.round(num(d.precip) * 10) / 10; });
+    var t = themeColors();
+
+    var aName = spotName(0) + ' (' + comparePts[0].lat.toFixed(3) + ', ' + comparePts[0].lng.toFixed(3) + ')';
+    var bName = spotName(1) + ' (' + comparePts[1].lat.toFixed(3) + ', ' + comparePts[1].lng.toFixed(3) + ')';
+
+    lastCompare = { a: a, b: b };
+    if (compareChart) { compareChart.destroy(); compareChart = null; }
+
+    if (typeof Chart !== 'undefined' && compareCanvas) {
+      compareChart = new Chart(compareCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: aName, data: aVals,
+              backgroundColor: 'rgba(46,158,91,0.85)', borderColor: COMPARE_COLORS[0], borderWidth: 1,
+              borderRadius: 3, maxBarThickness: 14
+            },
+            {
+              label: bName, data: bVals,
+              backgroundColor: 'rgba(42,127,186,0.85)', borderColor: COMPARE_COLORS[1], borderWidth: 1,
+              borderRadius: 3, maxBarThickness: 14
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          plugins: {
+            legend: { position: 'bottom', labels: { color: t.text, boxWidth: 12, font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: function (c) { return c.dataset.label + ': ' + c.parsed.y + ' mm'; }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: t.grid, drawBorder: false },
+              ticks: { color: t.text, font: { size: 10 }, maxTicksLimit: 5 }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: t.text, font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+            }
+          }
+        }
+      });
+    }
+
+    if (compareChartBox) compareChartBox.hidden = false;
+    if (compareStatus) {
+      compareStatus.hidden = false;
+      compareStatus.textContent = T('compare.status',
+        'Past 7 days — A: {pa} mm, B: {pb} mm. Next 7 days — A: {na} mm, B: {nb} mm.',
+        { pa: a.pastTotal.toFixed(1), pb: b.pastTotal.toFixed(1), na: a.nextTotal.toFixed(1), nb: b.nextTotal.toFixed(1) });
+    }
+    if (compareVerdict) {
+      compareVerdict.hidden = false;
+      compareVerdict.textContent = verdictSentence(a.pastTotal + a.nextTotal, b.pastTotal + b.nextTotal);
+    }
+  }
+
+  function fetchCompareRain() {
+    if (comparePts.length < 2) return;
+    var token = ++compareToken;
+    if (compareStatus) { compareStatus.hidden = false; compareStatus.textContent = T('compare.loading', 'Loading rainfall for both spots…'); }
+    if (compareChartBox) compareChartBox.hidden = true;
+    if (compareVerdict) { compareVerdict.hidden = true; compareVerdict.textContent = ''; }
+
+    Promise.all(comparePts.map(function (ll) { return fetchForecast(ll.lat, ll.lng); }))
+      .then(function (both) {
+        if (token !== compareToken) return;
+        renderCompare(both[0], both[1]);
+      })
+      .catch(function () {
+        if (token !== compareToken) return;
+        if (compareStatus) {
+          compareStatus.hidden = false;
+          compareStatus.textContent = T('compare.fail', 'Rainfall for these two spots could not be loaded. Please try again.');
+        }
+      });
+  }
+
+  if (compareStart) {
+    compareStart.addEventListener('click', function () {
+      resetCompare();
+      compareArmed = true;
+      compareStart.textContent = T('compare.picking', 'Picking… tap the map');
+      if (compareHint) compareHint.textContent = T('compare.hintPick', 'Tap the map to place spot A, then tap again for spot B.');
+      if (compareResetBtn) compareResetBtn.hidden = false;
+      if (comparePointsEl) comparePointsEl.hidden = false;
+      if (host) host.classList.add('is-picking');
+    });
+  }
+  if (compareResetBtn) compareResetBtn.addEventListener('click', resetCompare);
+
+  // Re-draw the compare wording in the new language.
+  onLanguage(function () {
+    if (compareResetBtn) compareResetBtn.textContent = T('compare.reset', 'Reset');
+    if (compareArmed) {
+      compareStart.textContent = T('compare.picking', 'Picking… tap the map');
+      if (compareHint) compareHint.textContent = T('compare.hintPick', 'Tap the map to place spot A, then tap again for spot B.');
+      return;
+    }
+    if (comparePts.length === 2 && lastCompare) {
+      compareStart.textContent = T('compare.start', 'Pick two spots');
+      if (compareHint) compareHint.textContent = T('compare.hintBoth', 'Past 7 days and next 7 days of rain, side by side.');
+      renderCompare(lastCompare.a, lastCompare.b);
+      return;
+    }
+    if (comparePts.length === 1) {
+      compareStart.textContent = T('compare.start', 'Pick two spots');
+      if (compareHint) compareHint.textContent = T('compare.hintA', 'Spot A placed. Now tap the second spot (B).');
+      return;
+    }
+    if (compareHint) compareHint.textContent = compareHintText();
+  });
+
   // Fullscreen
   var FullControl = L.Control.extend({
     options: { position: 'bottomright' },
@@ -255,8 +697,8 @@
       var wrap = L.DomUtil.create('div', 'leaflet-bar map-ctl');
       var btn = L.DomUtil.create('button', 'map-ctl-btn', wrap);
       btn.type = 'button';
-      btn.title = 'Toggle fullscreen';
-      btn.setAttribute('aria-label', 'Toggle fullscreen');
+      btn.title = T('map.fullscreen', 'Toggle fullscreen');
+      btn.setAttribute('aria-label', T('map.fullscreen', 'Toggle fullscreen'));
       btn.innerHTML = ICON_FULL;
       L.DomEvent.on(btn, 'click', function (ev) {
         L.DomEvent.stop(ev);
@@ -274,8 +716,8 @@
       var wrap = L.DomUtil.create('div', 'leaflet-bar map-ctl');
       var btn = L.DomUtil.create('button', 'map-ctl-btn', wrap);
       btn.type = 'button';
-      btn.title = 'Find my location';
-      btn.setAttribute('aria-label', 'Find my location');
+      btn.title = T('map.locate', 'Find my location');
+      btn.setAttribute('aria-label', T('map.locate', 'Find my location'));
       btn.innerHTML = ICON_LOCATE;
       L.DomEvent.on(btn, 'click', function (ev) {
         L.DomEvent.stop(ev);
@@ -298,7 +740,7 @@
     openWeather(e.latlng.lat, e.latlng.lng);
   });
   map.on('locationerror', function () {
-    showToast('Could not get your location. Check your browser permissions.');
+    showToast(T('map.locateFail', 'Could not get your location. Check your browser permissions.'));
   });
 
   function toggleFullscreen(el) {
@@ -306,7 +748,7 @@
     var fsEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
     if (!fsEl) {
       var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-      if (req) { try { req.call(el); } catch (e) { showToast('Fullscreen is not available.'); } }
+      if (req) { try { req.call(el); } catch (e) { showToast(T('map.fullscreenFail', 'Fullscreen is not available.')); } }
     } else {
       var exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
       if (exit) { try { exit.call(doc); } catch (e) {} }
@@ -317,12 +759,12 @@
   doc.addEventListener('webkitfullscreenchange', onFsChange);
 
   /* ---------- Layer failure handling ---------- */
-  function guardBase(layer, name) {
+  function guardBase(layer, nameKey, name) {
     var tripped = false;
     layer.on('tileerror', function () {
       if (tripped) return;
       tripped = true;
-      showToast(name + ' is unavailable right now, so another base map was used.');
+      showToast(T('map.baseFail', '{name} is unavailable right now, so another base map was used.', { name: T(nameKey, name) }));
       if (map.hasLayer(layer)) {
         map.removeLayer(layer);
         var anyBase = map.hasLayer(satellite) || map.hasLayer(sentinel) || map.hasLayer(streets);
@@ -330,38 +772,38 @@
       }
     });
   }
-  guardBase(satellite, 'Esri satellite imagery');
-  guardBase(sentinel, 'Sentinel-2 cloudless imagery');
-  guardBase(streets, 'OpenStreetMap streets');
+  guardBase(satellite, 'map.esri', 'Esri satellite imagery');
+  guardBase(sentinel, 'map.s2', 'Sentinel-2 cloudless imagery');
+  guardBase(streets, 'map.osm', 'OpenStreetMap streets');
 
-  function disableOverlay(layer, name) {
+  function disableOverlay(layer, nameKey, name) {
     if (map.hasLayer(layer)) map.removeLayer(layer);
     setSliderEnabled(layer, false);
-    showToast(name + ' could not be loaded, so it was turned off.');
+    showToast(T('map.overlayFail', '{name} could not be loaded, so it was turned off.', { name: T(nameKey, name) }));
   }
 
   rainfall.on('tileerror', function () {
     if (imergIdx < IMERG_DATES.length - 1) {
       imergIdx += 1;
       setImerg(imergIdx);
-      if (!imergWarned) { imergWarned = true; showToast('Showing the most recent IMERG rainfall day available.'); }
+      if (!imergWarned) { imergWarned = true; showToast(T('map.recentImerg', 'Showing the most recent IMERG rainfall day available.')); }
       return;
     }
-    disableOverlay(rainfall, 'NASA IMERG rainfall');
+    disableOverlay(rainfall, 'map.imergName', 'NASA IMERG rainfall');
   });
 
   veg.on('tileerror', function () {
     if (vegIdx < VEG_DATES.length - 1) {
       vegIdx += 1;
       setVeg(vegIdx);
-      if (!vegWarned) { vegWarned = true; showToast('Showing the most recent MODIS NDVI composite available.'); }
+      if (!vegWarned) { vegWarned = true; showToast(T('map.recentNdvi', 'Showing the most recent MODIS NDVI composite available.')); }
       return;
     }
-    disableOverlay(veg, 'MODIS NDVI');
+    disableOverlay(veg, 'map.ndviName', 'MODIS NDVI');
   });
 
   radar.on('tileerror', function () {
-    if (radarState === 'ready') disableOverlay(radar, 'Rain radar');
+    if (radarState === 'ready') disableOverlay(radar, 'map.radarName', 'Rain radar');
   });
 
   /* ---------------------------------------------------------
@@ -392,7 +834,9 @@
   function setPlayState(playing) {
     if (!tmPlay) return;
     tmPlay.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
-    tmPlay.setAttribute('aria-label', playing ? 'Pause radar animation' : 'Play radar animation');
+    tmPlay.setAttribute('aria-label', playing
+      ? T('map.pause', 'Pause radar animation')
+      : T('map.play', 'Play radar animation'));
     tmPlay.setAttribute('aria-pressed', String(playing));
     tmPlay.classList.toggle('is-playing', playing);
   }
@@ -433,7 +877,7 @@
         map.removeLayer(radar);
         setSliderEnabled(radar, false);
       }
-      showToast('Rain radar is unavailable right now.');
+      showToast(T('map.radarFail', 'Rain radar is unavailable right now.'));
     });
 
   map.on('overlayadd', function (e) {
@@ -444,9 +888,9 @@
         if (tmEl) tmEl.hidden = false;
       } else if (radarState === 'loading') {
         if (tmEl) tmEl.hidden = false;
-        if (tmLabel) tmLabel.textContent = 'Loading…';
+        if (tmLabel) tmLabel.textContent = T('map.loading', 'Loading…');
       } else {
-        showToast('Rain radar is unavailable right now.');
+        showToast(T('map.radarFail', 'Rain radar is unavailable right now.'));
       }
     }
   });
@@ -478,9 +922,10 @@
     for (var i = 0; i < nextDays.length; i++) {
       if (nextDays[i].precip >= 1) { idx = i; break; }
     }
-    if (idx === -1) return 'No significant rain is expected in the next 7 days — irrigation is likely to be needed.';
-    if (idx === 0) return 'Rain is expected today — a good time to delay irrigation.';
-    return 'Rain expected in ' + idx + ' day' + (idx > 1 ? 's' : '') + ', good time to delay irrigation.';
+    if (idx === -1) return T('weather.none', 'No significant rain is expected in the next 7 days — irrigation is likely to be needed.');
+    if (idx === 0) return T('weather.today', 'Rain is expected today — a good time to delay irrigation.');
+    if (idx === 1) return T('weather.inDay', 'Rain expected in 1 day — a good time to delay irrigation.');
+    return T('weather.inDays', 'Rain expected in {n} days — a good time to delay irrigation.', { n: idx });
   }
 
   function computeSummary(json) {
@@ -519,35 +964,36 @@
   }
 
   function popupHead(lat, lon) {
-    return '<div class="wx-head"><strong>Weather at this spot</strong>' +
+    return '<div class="wx-head"><strong>' + esc(T('weather.title', 'Weather at this spot')) + '</strong>' +
       '<span class="wx-coords">' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '</span></div>';
   }
   function popupLoading(lat, lon) {
     return '<div class="wx-popup">' + popupHead(lat, lon) +
-      '<div class="wx-loading"><span class="wx-spinner" aria-hidden="true"></span>Loading forecast…</div></div>';
+      '<div class="wx-loading"><span class="wx-spinner" aria-hidden="true"></span>' +
+      esc(T('weather.loading', 'Loading forecast…')) + '</div></div>';
   }
   function popupError(lat, lon) {
     return '<div class="wx-popup">' + popupHead(lat, lon) +
-      '<div class="wx-error">Could not load the weather for this spot. Please try again.</div></div>';
+      '<div class="wx-error">' + esc(T('weather.error', 'Could not load the weather for this spot. Please try again.')) + '</div></div>';
   }
   function popupData(lat, lon, s) {
     var p = [];
     p.push('<div class="wx-popup">');
     p.push(popupHead(lat, lon));
     p.push('<div class="wx-now">');
-    p.push('<span class="wx-now-item"><span class="wx-now-label">Now</span><strong>' +
+    p.push('<span class="wx-now-item"><span class="wx-now-label">' + esc(T('weather.now', 'Now')) + '</span><strong>' +
       Math.round(s.current.temp) + '&deg;C</strong></span>');
-    p.push('<span class="wx-now-item"><span class="wx-now-label">Humidity</span><strong>' +
+    p.push('<span class="wx-now-item"><span class="wx-now-label">' + esc(T('weather.humidity', 'Humidity')) + '</span><strong>' +
       Math.round(s.current.humidity) + '%</strong></span>');
     p.push('</div>');
-    p.push('<div class="wx-chart"><canvas aria-label="Daily rainfall for the past and next 7 days"></canvas></div>');
+    p.push('<div class="wx-chart"><canvas aria-label="' + esc(T('weather.chartAria', 'Daily rainfall for the past and next 7 days')) + '"></canvas></div>');
     p.push('<div class="wx-totals">');
-    p.push('<div class="wx-total"><span>Past 7 days</span><strong>' + s.pastTotal.toFixed(1) + ' mm</strong></div>');
-    p.push('<div class="wx-total"><span>Next 7 days</span><strong>' + s.nextTotal.toFixed(1) + ' mm</strong></div>');
+    p.push('<div class="wx-total"><span>' + esc(T('weather.past7', 'Past 7 days')) + '</span><strong>' + s.pastTotal.toFixed(1) + ' mm</strong></div>');
+    p.push('<div class="wx-total"><span>' + esc(T('weather.next7', 'Next 7 days')) + '</span><strong>' + s.nextTotal.toFixed(1) + ' mm</strong></div>');
     p.push('</div>');
     p.push('<p class="wx-advice">' + esc(s.advice) + '</p>');
-    p.push('<button type="button" class="btn btn-primary wx-ask">Ask Gemini about this spot</button>');
-    p.push('<p class="wx-credit">Rainfall &amp; temperature model data from Open-Meteo.</p>');
+    p.push('<button type="button" class="btn btn-primary wx-ask">' + esc(T('weather.ask', 'Ask Gemini about this spot')) + '</button>');
+    p.push('<p class="wx-credit">' + esc(T('weather.credit', 'Rainfall & temperature model data from Open-Meteo.')) + '</p>');
     p.push('</div>');
     return p.join('');
   }
@@ -565,7 +1011,7 @@
       type: 'bar',
       data: {
         labels: labels,
-        datasets: [{ label: 'Rain (mm)', data: values, backgroundColor: colours, borderRadius: 4, maxBarThickness: 16 }]
+        datasets: [{ label: T('weather.rain', 'Rain (mm)'), data: values, backgroundColor: colours, borderRadius: 4, maxBarThickness: 16 }]
       },
       options: {
         responsive: true,
@@ -591,10 +1037,9 @@
   }
 
   function askAboutSpot(lat, lon, s) {
-    var q = 'A farmer is at latitude ' + lat.toFixed(4) + ', longitude ' + lon.toFixed(4) +
-      '. About ' + s.pastTotal.toFixed(1) + ' mm of rain fell in the past 7 days, and about ' +
-      s.nextTotal.toFixed(1) + ' mm is forecast for the next 7 days. ' + s.advice +
-      ' In 2-4 short sentences, explain what this means for irrigation and crop planning at this location.';
+    var q = T('weather.askQ',
+      'A farmer is at latitude {lat}, longitude {lon}. About {past} mm of rain fell in the past 7 days, and about {next} mm is forecast for the next 7 days. {advice} In 2-4 short sentences, explain what this means for irrigation and crop planning at this location.',
+      { lat: lat.toFixed(4), lon: lon.toFixed(4), past: s.pastTotal.toFixed(1), next: s.nextTotal.toFixed(1), advice: s.advice });
     var api = window.SatelliteWatch;
     if (api && typeof api.askGemini === 'function') {
       api.askGemini(q);
@@ -647,7 +1092,166 @@
       });
   }
 
+  /* ---------------------------------------------------------
+     Measure my field
+     Tap points on the map to outline a field. The area uses the
+     plain spherical-excess formula (Leaflet has no area helper of
+     its own) — no extra library, no download.
+     --------------------------------------------------------- */
+  var measureStart = doc.getElementById('measureStart');
+  var measureClear = doc.getElementById('measureClear');
+  var measureHint = doc.getElementById('measureHint');
+  var measureReadout = doc.getElementById('measureReadout');
+  var measureAcres = doc.getElementById('measureAcres');
+  var measureHa = doc.getElementById('measureHa');
+  var measureM2 = doc.getElementById('measureM2');
+
+  var measureOn = false;
+  var measurePts = [];
+  var measurePoly = null;
+  var measureLine = null;
+  var measureDots = [];
+  var MEASURE_STYLE = { color: '#2e9e5b', weight: 2.5, fillColor: '#2e9e5b', fillOpacity: 0.18 };
+  var M2_PER_ACRE = 4046.8564224;      // international acre
+  var M2_PER_HECTARE = 10000;
+  var EARTH_RADIUS = 6378137;          // metres (WGS84 equatorial radius)
+
+  // Area of a polygon on a sphere, in square metres:
+  //   A = R²/2 · |Σ (λ₂ − λ₁)(2 + sin φ₁ + sin φ₂)|
+  // Longitude steps are folded to the short way round the globe.
+  function sphericalArea(points) {
+    var n = points.length;
+    if (n < 3) return 0;
+    var sum = 0;
+    for (var i = 0; i < n; i++) {
+      var p1 = points[i];
+      var p2 = points[(i + 1) % n];
+      var lat1 = p1.lat * Math.PI / 180;
+      var lat2 = p2.lat * Math.PI / 180;
+      var dLng = (p2.lng - p1.lng) * Math.PI / 180;
+      if (dLng > Math.PI) dLng -= 2 * Math.PI;
+      if (dLng < -Math.PI) dLng += 2 * Math.PI;
+      sum += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
+    }
+    return Math.abs(sum) * EARTH_RADIUS * EARTH_RADIUS / 2;
+  }
+
+  function measureNumber(value, digits) {
+    var fixed = value.toFixed(digits);
+    var parts = fixed.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  }
+
+  function measureRender() {
+    var m2 = sphericalArea(measurePts);
+    var ha = m2 / M2_PER_HECTARE;
+    var acres = m2 / M2_PER_ACRE;
+    if (measureAcres) measureAcres.textContent = measureNumber(acres, 2);
+    if (measureHa) measureHa.textContent = measureNumber(ha, 2);
+    if (measureM2) measureM2.textContent = measureNumber(m2, 0);
+    if (measurePoly) {
+      measurePoly.setTooltipContent(T('measure.haShort', '{v} ha', { v: measureNumber(ha, 2) }));
+    }
+  }
+
+  function measurePaint() {
+    if (measurePts.length >= 3) {
+      if (!measurePoly) {
+        measurePoly = L.polygon(measurePts, MEASURE_STYLE).addTo(map);
+        measurePoly.bindTooltip('', {
+          permanent: true, direction: 'center', className: 'measure-tip', sticky: false
+        });
+      } else {
+        measurePoly.setLatLngs(measurePts);
+      }
+      if (measureLine) { map.removeLayer(measureLine); measureLine = null; }
+    } else {
+      if (measurePoly) { map.removeLayer(measurePoly); measurePoly = null; }
+      if (!measureLine) measureLine = L.polyline([], MEASURE_STYLE).addTo(map);
+      measureLine.setLatLngs(measurePts);
+    }
+    measureRender();
+  }
+
+  function measureAddPoint(latlng) {
+    var point = L.latLng(latlng.lat, latlng.lng);
+    measurePts.push(point);
+    measureDots.push(L.circleMarker(point, {
+      radius: 5, color: '#ffffff', weight: 2, fillColor: '#2e9e5b', fillOpacity: 1, interactive: false
+    }).addTo(map));
+
+    if (measureClear) measureClear.hidden = false;
+    if (measureReadout) measureReadout.hidden = false;
+    measurePaint();
+
+    if (measureHint) {
+      measureHint.textContent = measurePts.length < 3
+        ? T('measure.need', 'Tap at least three points on the map.')
+        : T('measure.hintMore', 'Keep tapping to add corners — three points or more make a field.');
+    }
+  }
+
+  function measureClearAll() {
+    if (measurePoly) { map.removeLayer(measurePoly); measurePoly = null; }
+    if (measureLine) { map.removeLayer(measureLine); measureLine = null; }
+    measureDots.forEach(function (dot) { map.removeLayer(dot); });
+    measureDots = [];
+    measurePts = [];
+    if (measureClear) measureClear.hidden = true;
+    if (measureReadout) measureReadout.hidden = true;
+    if (measureHint) measureHint.textContent = T('measure.hint', 'Tap the map to outline your field.');
+  }
+
+  function measureSetActive(on) {
+    measureOn = on;
+    if (host) host.classList.toggle('is-measuring', on);
+    if (measureStart) {
+      measureStart.textContent = on
+        ? T('measure.stop', 'Stop measuring')
+        : T('measure.btn', 'Measure my field');
+      measureStart.setAttribute('aria-pressed', String(on));
+      measureStart.classList.toggle('btn-primary', !on);
+      measureStart.classList.toggle('btn-quiet', on);
+    }
+    if (on && measureHint) {
+      measureHint.textContent = measurePts.length >= 3
+        ? T('measure.hintMore', 'Keep tapping to add corners — three points or more make a field.')
+        : T('measure.hint', 'Tap the map to outline your field.');
+    }
+  }
+
+  if (measureStart) {
+    measureStart.addEventListener('click', function () { measureSetActive(!measureOn); });
+  }
+  if (measureClear) measureClear.addEventListener('click', measureClearAll);
+
+  doc.addEventListener('keydown', function (e) {
+    if ((e.key === 'Escape' || e.key === 'Esc') && measureOn) measureSetActive(false);
+  });
+
+  // Re-word the button, hint and label after a language change.
+  onLanguage(function () {
+    if (measureStart) {
+      measureStart.textContent = measureOn
+        ? T('measure.stop', 'Stop measuring')
+        : T('measure.btn', 'Measure my field');
+    }
+    if (measureHint) {
+      measureHint.textContent = measurePts.length === 0
+        ? T('measure.hint', 'Tap the map to outline your field.')
+        : (measurePts.length < 3
+          ? T('measure.need', 'Tap at least three points on the map.')
+          : T('measure.hintMore', 'Keep tapping to add corners — three points or more make a field.'));
+    }
+    measureRender();
+  });
+
   map.on('click', function (e) {
+    // Measuring takes priority: a tap adds a corner to the field.
+    if (measureOn) { measureAddPoint(e.latlng); return; }
+    // In compare mode a tap drops a pin instead of opening the forecast.
+    if (compareArmed) { addComparePoint(e.latlng); return; }
     openWeather(e.latlng.lat, e.latlng.lng);
   });
 
@@ -673,7 +1277,7 @@
     if (!list || !list.length) {
       var empty = doc.createElement('div');
       empty.className = 'map-search-empty';
-      empty.textContent = 'No places found.';
+      empty.textContent = T('map.noPlaces', 'No places found.');
       searchResults.appendChild(empty);
       searchResults.hidden = false;
       if (searchInput) searchInput.setAttribute('aria-expanded', 'true');
@@ -764,11 +1368,20 @@
   window.setTimeout(function () { map.invalidateSize(); }, 350);
 
   doc.addEventListener('sw:themechange', function () {
-    if (!weatherChart) return;
     var t = themeColors();
-    var sc = weatherChart.options.scales || {};
-    if (sc.y) { if (sc.y.grid) sc.y.grid.color = t.grid; if (sc.y.ticks) sc.y.ticks.color = t.text; }
-    if (sc.x && sc.x.ticks) sc.x.ticks.color = t.text;
-    weatherChart.update();
+    var sc = weatherChart ? (weatherChart.options.scales || {}) : null;
+    if (weatherChart) {
+      if (sc.y) { if (sc.y.grid) sc.y.grid.color = t.grid; if (sc.y.ticks) sc.y.ticks.color = t.text; }
+      if (sc.x && sc.x.ticks) sc.x.ticks.color = t.text;
+      weatherChart.update();
+    }
+    if (compareChart) {
+      var csc = compareChart.options.scales || {};
+      if (csc.y) { if (csc.y.grid) csc.y.grid.color = t.grid; if (csc.y.ticks) csc.y.ticks.color = t.text; }
+      if (csc.x && csc.x.ticks) csc.x.ticks.color = t.text;
+      var legend = compareChart.options.plugins && compareChart.options.plugins.legend;
+      if (legend && legend.labels) legend.labels.color = t.text;
+      compareChart.update();
+    }
   });
 })();

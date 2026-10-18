@@ -95,6 +95,87 @@ const CONFIG = {
       { label: "Water area change", value: "−18%" },
       { label: "Cloud-free scenes used", value: "24" }
     ]
+  },
+
+  /* ----- Crop season guide (NDVI curve) -----
+     ILLUSTRATIVE SHAPES, NOT MEASURED DATA.
+     One value per month, January → December, on a 0–1 NDVI scale.
+     Swap in your own numbers here and the chart updates by itself.
+
+     Wheat is rabi (sown ~November, harvested ~April) and paddy is
+     kharif (transplanted ~June, harvested ~October), so the two
+     curves are complements of one another on the same land. */
+  cropSeasons: {
+    months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    note: "Illustrative pattern, not measured data",
+    footnote: "This is why you must compare the same time of year when looking for change.",
+    crops: [
+      {
+        id: "wheat",
+        name: "Wheat",
+        season: "Rabi",
+        window: "Sown around November · harvested around April",
+        color: "#2e9e5b",
+        values: [0.46, 0.63, 0.72, 0.44, 0.20, 0.14, 0.12, 0.12, 0.13, 0.16, 0.30, 0.40]
+      },
+      {
+        id: "paddy",
+        name: "Paddy",
+        season: "Kharif",
+        window: "Transplanted around June · harvested around October",
+        color: "#2a7fba",
+        values: [0.14, 0.13, 0.13, 0.14, 0.22, 0.34, 0.58, 0.74, 0.70, 0.36, 0.18, 0.15]
+      }
+    ]
+  },
+
+  /* ----- Layer information cards -----
+     One entry per layer in the map's layer switcher, keyed by the
+     exact layer name. Each "i" button in the switcher opens a card
+     built from these five fields. */
+  layerFacts: {
+    "Satellite (Esri)": {
+      source: "Esri World Imagery — Maxar, Earthstar Geographics and community contributors",
+      resolution: "About 0.3–1 m in Punjab; it varies from tile to tile across the mosaic",
+      updates: "Irregularly — every scene has its own date, often months to years old",
+      goodFor: "Visual context: field shapes, roads, buildings and canals",
+      limit: "Pictures only — there is no spectral index, and the capture date changes across the scene"
+    },
+    "Sentinel-2 cloudless (EOX)": {
+      source: "ESA Copernicus Sentinel-2, mosaicked by EOX IT Services",
+      resolution: "10 m per pixel",
+      updates: "One cloud-free mosaic per year",
+      goodFor: "A consistent yearly snapshot of crop extent and land cover",
+      limit: "A whole-year composite — short events like a single harvest are averaged away"
+    },
+    "Streets (OpenStreetMap)": {
+      source: "OpenStreetMap contributors",
+      resolution: "Vector map — no fixed pixel size",
+      updates: "Continuously, by volunteer mappers",
+      goodFor: "Place names, roads and village boundaries to orient yourself",
+      limit: "Hand-mapped and uneven in coverage — it is not a measurement of the land"
+    },
+    "Rain radar (RainViewer)": {
+      source: "RainViewer, built from national weather-radar networks",
+      resolution: "About 1–2 km per pixel; coarser far from any radar",
+      updates: "Every 10 minutes; the archive covers the last couple of hours",
+      goodFor: "Seeing where rain is falling right now",
+      limit: "A very short archive, with gaps in areas covered by few radars"
+    },
+    "Rainfall (NASA IMERG)": {
+      source: "NASA GPM IMERG — rainfall estimated from satellite microwave and infrared",
+      resolution: "About 10 km per pixel",
+      updates: "Roughly once a day, with a day or two of delay",
+      goodFor: "Rainfall totals over a district or a whole season",
+      limit: "Too coarse for one field, and it is an estimate — not a rain gauge"
+    },
+    "Vegetation (MODIS NDVI)": {
+      source: "NASA MODIS Terra NDVI, 8-day composite",
+      resolution: "250 m per pixel",
+      updates: "A new composite every 8 days",
+      goodFor: "Big-picture greening across the whole state, year after year",
+      limit: "250 m pixels blur small fields together, so a single field is not visible"
+    }
   }
 };
 

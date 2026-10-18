@@ -7,16 +7,17 @@
 <meta name="description" content="Satellite Data for Local Problem Solving — use free satellite imagery to investigate local environmental problems.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0b1a14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://unpkg.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main" data-i18n="skip">Skip to content</a>
 
 <!-- Splash Screen -->
 <div id="splash-screen" class="splash-screen">
@@ -25,9 +26,9 @@
     <ellipse cx="12" cy="12" rx="9.4" ry="4.2" transform="rotate(-28 12 12)"/>
   </svg>
   <h1>Satellite Watch</h1>
-  <p class="splash-subtitle">Earth observation made simple</p>
+  <p class="splash-subtitle" data-i18n="splash.sub">Earth observation made simple</p>
   <div class="splash-loading">
-    <span>Loading satellite data...</span>
+    <span data-i18n="splash.loading">Loading satellite data...</span>
     <div class="splash-bar"><div class="splash-fill"></div></div>
   </div>
 </div>
@@ -35,7 +36,7 @@
 <!-- Header / Navbar -->
 <header class="site-header" id="main-header">
   <div class="container header-container">
-    <a href="#hero" class="logo" aria-label="iota√-1 home">
+    <a href="#hero" class="logo" data-i18n-aria-label="logo.home" aria-label="iota√-1 home">
       <span class="logo-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3.3"/>
@@ -45,16 +46,18 @@
       <span class="logo-text">iota<span>√-1</span></span>
     </a>
 
-    <nav class="nav-links" id="primaryNav" aria-label="Primary">
-      <a href="#explore">Maps</a>
-      <a href="#method">Method</a>
-      <a href="#results">Results</a>
-      <a href="#ai-tutor">Ask Gemini</a>
-      <a href="#limits">Limits</a>
-      <a href="#sources">Sources</a>
+    <nav class="nav-links" id="primaryNav" data-i18n-aria-label="nav.primary" aria-label="Primary">
+      <a href="#explore" data-i18n="nav.maps">Maps</a>
+      <a href="#method" data-i18n="nav.method">Method</a>
+      <a href="#results" data-i18n="nav.results">Results</a>
+      <a href="#ai-tutor" data-i18n="nav.ask">Ask Gemini</a>
+      <a href="#limits" data-i18n="nav.limits">Limits</a>
+      <a href="#sources" data-i18n="nav.sources">Sources</a>
     </nav>
 
     <div class="header-actions">
+      <div class="lang-switch" id="langSwitch" role="group" data-i18n-aria-label="lang.label" aria-label="Change language"></div>
+
       <button id="themeToggle" class="icon-btn theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">
         <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4"/>
@@ -65,7 +68,7 @@
         </svg>
       </button>
 
-      <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="primaryNav">
+      <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" data-i18n-aria-label="menu.toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="primaryNav">
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
@@ -75,6 +78,13 @@
 </header>
 
 <main id="main">
+
+<!-- Print-only report header (hidden on screen, shown when printing) -->
+<div class="print-only print-head">
+  <h1>iota&radic;-1</h1>
+  <p data-i18n="print.sub">Small changes, seen from space &mdash; one-page satellite summary report</p>
+  <p class="print-meta"><span data-i18n="print.area">Punjab Agricultural Belt</span> &middot; <span data-i18n="print.generated">generated</span> <span id="reportDate"></span></p>
+</div>
 
 <!-- Hero Section -->
 <section id="hero" class="hero">
@@ -107,12 +117,12 @@
   <div class="hero-overlay" aria-hidden="true"></div>
 
   <div class="container hero-content">
-    <span class="eyebrow">Satellite Watch</span>
-    <h1 class="hero-title">Satellite Data for <span class="grad">Local Problem Solving</span></h1>
-    <p class="hero-subtitle">See your neighbourhood from space &mdash; and turn free satellite imagery into answers.</p>
+    <span class="eyebrow" data-i18n="hero.eyebrow">Satellite Watch</span>
+    <h1 class="hero-title"><span data-i18n="hero.titleA">Satellite Data for</span> <span class="grad" data-i18n="hero.titleB">Local Problem Solving</span></h1>
+    <p class="hero-subtitle" data-i18n="hero.sub">See your neighbourhood from space &mdash; and turn free satellite imagery into answers.</p>
     <div class="hero-actions">
-      <a href="#explore" class="btn btn-primary">Explore the maps</a>
-      <a href="#ai-tutor" class="btn btn-outline">Ask Gemini</a>
+      <a href="#explore" class="btn btn-primary" data-i18n="hero.explore">Explore the maps</a>
+      <a href="#ai-tutor" class="btn btn-outline" data-i18n="hero.ask">Ask Gemini</a>
     </div>
 
     <div class="hero-stats">
@@ -121,12 +131,12 @@
         <div class="hero-stat-label">Resolution &middot; Sentinel-2</div>
       </div>
       <div class="hero-stat">
-        <div class="hero-stat-value">5 days</div>
-        <div class="hero-stat-label">Revisit time</div>
+        <div class="hero-stat-value" data-i18n="hero.stat2value">5 days</div>
+        <div class="hero-stat-label" data-i18n="hero.stat2label">Revisit time</div>
       </div>
       <div class="hero-stat">
-        <div class="hero-stat-value">6 yrs</div>
-        <div class="hero-stat-label">Years analysed</div>
+        <div class="hero-stat-value" data-i18n="hero.stat3value">6 yrs</div>
+        <div class="hero-stat-label" data-i18n="hero.stat3label">Years analysed</div>
       </div>
     </div>
   </div>
@@ -136,8 +146,8 @@
 <section id="problem" class="section">
   <div class="container">
     <div class="section-head">
-      <span class="eyebrow">The Local Problem</span>
-      <h2>Water stress in Punjab's agricultural belt</h2>
+      <span class="eyebrow" data-i18n="problem.eyebrow">The Local Problem</span>
+      <h2 data-i18n="problem.title">Water stress in Punjab's agricultural belt</h2>
     </div>
     <div class="problem-card reveal">
       <div class="problem-icon" aria-hidden="true">
@@ -147,9 +157,9 @@
         </svg>
       </div>
       <div>
-        <h3 id="problemTitle">Punjab Agricultural Belt</h3>
-        <p id="problemStatement">Punjab's agricultural belt &mdash; once called the breadbasket of India &mdash; is under growing water stress. Groundwater is falling, temperatures are rising, and yields in some areas have plateaued or declined.</p>
-        <p class="research-question"><strong>Research question:</strong> <span id="researchQuestion">How have vegetation health and water coverage changed across Punjab's agricultural belt between 2023 and 2026?</span></p>
+        <h3 id="problemTitle" data-i18n="problem.area">Punjab Agricultural Belt</h3>
+        <p id="problemStatement" data-i18n="problem.text">Punjab's agricultural belt &mdash; once called the breadbasket of India &mdash; is under growing water stress. Groundwater is falling, temperatures are rising, and yields in some areas have plateaued or declined.</p>
+        <p class="research-question"><strong data-i18n="problem.rqLabel">Research question:</strong> <span id="researchQuestion" data-i18n="problem.rq">How have vegetation health and water coverage changed across Punjab's agricultural belt between 2023 and 2026?</span></p>
       </div>
     </div>
   </div>
@@ -159,9 +169,9 @@
 <section id="explore" class="section section--alt">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">Maps</span>
-      <h2>Explore the map</h2>
-      <p>Zoom in, switch base layers, add rain and vegetation overlays, then click anywhere for a local weather forecast.</p>
+      <span class="eyebrow" data-i18n="map.eyebrow">Maps</span>
+      <h2 data-i18n="map.title">Explore the map</h2>
+      <p data-i18n="map.sub">Zoom in, switch base layers, add rain and vegetation overlays, then click anywhere for a local weather forecast.</p>
     </div>
 
     <!-- No "reveal" here on purpose: the fade-up leaves a CSS transform
@@ -169,7 +179,7 @@
          breaks its drag/pointer maths. -->
     <div class="map-shell">
       <div class="map-frame">
-        <div id="map" class="map-canvas" role="region" aria-label="Interactive satellite map of the study area"></div>
+        <div id="map" class="map-canvas" role="region" data-i18n-aria-label="map.region" aria-label="Interactive satellite map of the study area"></div>
 
         <!-- Floating place search -->
         <div class="map-search" role="search">
@@ -180,18 +190,19 @@
           </span>
           <input id="mapSearch" class="map-search-input" type="text" placeholder="Search a village or town&hellip;"
                  autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false"
-                 aria-controls="mapSearchResults" aria-autocomplete="list" aria-label="Search for a place">
-          <button id="mapSearchClear" class="map-search-clear" type="button" aria-label="Clear search" hidden>
+                 aria-controls="mapSearchResults" aria-autocomplete="list"
+                 data-i18n-placeholder="map.searchPh" data-i18n-aria-label="map.searchAria" aria-label="Search for a place">
+          <button id="mapSearchClear" class="map-search-clear" type="button" data-i18n-aria-label="map.clearSearch" aria-label="Clear search" hidden>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18"/>
             </svg>
           </button>
-          <div id="mapSearchResults" class="map-search-results" role="listbox" aria-label="Search results" hidden></div>
+          <div id="mapSearchResults" class="map-search-results" role="listbox" data-i18n-aria-label="map.resultsAria" aria-label="Search results" hidden></div>
         </div>
 
         <!-- Rain radar timeline -->
         <div class="map-timemachine" id="radarTimemachine" hidden>
-          <button id="radarPlay" class="map-tm-btn" type="button" aria-label="Play radar animation" aria-pressed="false">
+          <button id="radarPlay" class="map-tm-btn" type="button" data-i18n-aria-label="map.play" aria-label="Play radar animation" aria-pressed="false">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5Z"/></svg>
           </button>
           <span class="map-tm-label" id="radarTimeLabel">&mdash;</span>
@@ -200,7 +211,63 @@
         <div class="map-toast" id="mapToast" role="status" aria-live="polite" hidden></div>
       </div>
 
-      <p class="map-notes">Satellite background is for context (about 1 m, varies by area). Sentinel-2 is 10 m. Rain radar is coarse and may have gaps; NASA IMERG is about 10 km. Weather values are model data, not field measurements.</p>
+      <p class="map-notes" data-i18n="map.notes">Satellite background is for context (about 1 m, varies by area). Sentinel-2 is 10 m. Rain radar is coarse and may have gaps; NASA IMERG is about 10 km. Weather values are model data, not field measurements.</p>
+
+      <!-- Compare two spots -->
+      <div class="compare-panel card reveal" id="comparePanel">
+        <div class="compare-head">
+          <div>
+            <h3 data-i18n="compare.title">Compare two spots</h3>
+            <p class="compare-hint" id="compareHint">Press &ldquo;Pick two spots&rdquo;, then tap any two places on the map.</p>
+          </div>
+          <div class="compare-actions">
+            <button class="btn btn-primary" type="button" id="compareStart" data-i18n="compare.start">Pick two spots</button>
+            <button class="btn btn-quiet" type="button" id="compareReset" data-i18n="compare.reset" hidden>Reset</button>
+          </div>
+        </div>
+
+        <div class="compare-points" id="comparePoints" hidden>
+          <span class="compare-pill compare-pill--a" id="compareA"></span>
+          <span class="compare-pill compare-pill--b" id="compareB"></span>
+        </div>
+
+        <p class="compare-status" id="compareStatus" role="status" aria-live="polite" hidden></p>
+
+        <div class="chart-box compare-chart" id="compareChartBox" hidden>
+          <canvas id="compareChart" data-i18n-aria-label="compare.chartAria" aria-label="Grouped bar chart of daily rainfall for spot A and spot B"></canvas>
+        </div>
+
+        <p class="compare-verdict" id="compareVerdict" hidden></p>
+      </div>
+
+      <!-- Measure my field -->
+      <div class="card measure-panel reveal" id="measurePanel">
+        <div class="measure-head">
+          <div>
+            <h3 data-i18n="measure.title">Your field</h3>
+            <p class="measure-hint" id="measureHint" data-i18n="measure.hint">Tap the map to outline your field.</p>
+          </div>
+          <div class="measure-actions">
+            <button class="btn btn-primary" type="button" id="measureStart" aria-pressed="false" data-i18n="measure.btn">Measure my field</button>
+            <button class="btn btn-quiet" type="button" id="measureClear" data-i18n="measure.clear" hidden>Clear</button>
+          </div>
+        </div>
+
+        <div class="measure-readout" id="measureReadout" hidden>
+          <div class="measure-value">
+            <span class="measure-label" data-i18n="measure.acres">Acres</span>
+            <strong id="measureAcres">0</strong>
+          </div>
+          <div class="measure-value">
+            <span class="measure-label" data-i18n="measure.ha">Hectares</span>
+            <strong id="measureHa">0</strong>
+          </div>
+          <div class="measure-value">
+            <span class="measure-label" data-i18n="measure.m2">Square metres</span>
+            <strong id="measureM2">0</strong>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -209,9 +276,9 @@
 <section id="method" class="section">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">Data &amp; Method</span>
-      <h2>Where the data comes from and how it is used</h2>
-      <p>Every scene is free to download. No licence, no sign-in, no special hardware.</p>
+      <span class="eyebrow" data-i18n="method.eyebrow">Data &amp; Method</span>
+      <h2 data-i18n="method.title">Where the data comes from and how it is used</h2>
+      <p data-i18n="method.sub">Every scene is free to download. No licence, no sign-in, no special hardware.</p>
     </div>
 
     <div class="card table-card reveal">
@@ -219,50 +286,51 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Sensor</th>
-              <th scope="col">Scene</th>
-              <th scope="col">Cloud&nbsp;%</th>
-              <th scope="col">Index</th>
+              <th scope="col" data-i18n="method.th.date">Date</th>
+              <th scope="col" data-i18n="method.th.sensor">Sensor</th>
+              <th scope="col" data-i18n="method.th.resolution">Resolution</th>
+              <th scope="col" data-i18n="method.th.scene">Scene</th>
+              <th scope="col" data-i18n="method.th.cloud">Cloud&nbsp;%</th>
+              <th scope="col" data-i18n="method.th.index">Index</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td>2023-06-15</td><td>Sentinel-2 MSI</td><td>T43RDP_20230615</td><td>4%</td><td>NDVI 0.63</td></tr>
-            <tr><td>2023-11-02</td><td>Sentinel-2 MSI</td><td>T43RDP_20231102</td><td>9%</td><td>NDVI 0.45</td></tr>
-            <tr><td>2024-05-28</td><td>Landsat 9 OLI-2</td><td>LC09_L3_148039</td><td>7%</td><td>NDVI 0.54</td></tr>
-            <tr><td>2025-06-09</td><td>Sentinel-2 MSI</td><td>T43RDP_20250609</td><td>12%</td><td>NDVI 0.48</td></tr>
-            <tr><td>2026-06-15</td><td>Sentinel-2 MSI</td><td>T43RDP_20260615</td><td>5%</td><td>NDVI 0.42</td></tr>
+            <tr><td>2023-06-15</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20230615</td><td>4%</td><td>NDVI 0.63</td></tr>
+            <tr><td>2023-11-02</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20231102</td><td>9%</td><td>NDVI 0.45</td></tr>
+            <tr><td>2024-05-28</td><td>Landsat 9 OLI-2</td><td>30 m</td><td>LC09_L3_148039</td><td>7%</td><td>NDVI 0.54</td></tr>
+            <tr><td>2025-06-09</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20250609</td><td>12%</td><td>NDVI 0.48</td></tr>
+            <tr><td>2026-06-15</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20260615</td><td>5%</td><td>NDVI 0.42</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="table-note">Cloud-free scenes only. NDVI = (NIR &minus; Red) / (NIR + Red).</p>
+      <p class="table-note" data-i18n="method.tableNote">Cloud-free scenes only. NDVI = (NIR &minus; Red) / (NIR + Red).</p>
     </div>
 
     <ol class="stepper reveal">
       <li class="step">
         <span class="step-marker"><span class="step-num">1</span></span>
-        <h3 class="step-title">Download</h3>
-        <p class="step-desc">Grab free Sentinel-2 and Landsat scenes from Copernicus and USGS.</p>
+        <h3 class="step-title" data-i18n="method.step1">Download</h3>
+        <p class="step-desc" data-i18n="method.step1d">Grab free Sentinel-2 and Landsat scenes from Copernicus and USGS.</p>
       </li>
       <li class="step">
         <span class="step-marker"><span class="step-num">2</span></span>
-        <h3 class="step-title">Process</h3>
-        <p class="step-desc">Clip to the study area, remove clouds and correct the reflectance.</p>
+        <h3 class="step-title" data-i18n="method.step2">Process</h3>
+        <p class="step-desc" data-i18n="method.step2d">Clip to the study area, remove clouds and correct the reflectance.</p>
       </li>
       <li class="step">
         <span class="step-marker"><span class="step-num">3</span></span>
-        <h3 class="step-title">Compute index</h3>
-        <p class="step-desc">Calculate NDVI, NDWI and land-cover classes from the bands.</p>
+        <h3 class="step-title" data-i18n="method.step3">Compute index</h3>
+        <p class="step-desc" data-i18n="method.step3d">Calculate NDVI, NDWI and land-cover classes from the bands.</p>
       </li>
       <li class="step">
         <span class="step-marker"><span class="step-num">4</span></span>
-        <h3 class="step-title">Map</h3>
-        <p class="step-desc">Render the layers and compare the two dates side by side.</p>
+        <h3 class="step-title" data-i18n="method.step4">Map</h3>
+        <p class="step-desc" data-i18n="method.step4d">Render the layers and compare the two dates side by side.</p>
       </li>
       <li class="step">
         <span class="step-marker"><span class="step-num">5</span></span>
-        <h3 class="step-title">Interpret</h3>
-        <p class="step-desc">Read the patterns, then check them against ground observations.</p>
+        <h3 class="step-title" data-i18n="method.step5">Interpret</h3>
+        <p class="step-desc" data-i18n="method.step5d">Read the patterns, then check them against ground observations.</p>
       </li>
     </ol>
   </div>
@@ -272,63 +340,159 @@
 <section id="results" class="section section--alt">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">Results</span>
-      <h2>What the data shows</h2>
-      <p>Summary across the 15,700&nbsp;km² study area, 2023 to 2026.</p>
+      <span class="eyebrow" data-i18n="results.eyebrow">Results</span>
+      <h2 data-i18n="results.title">What the data shows</h2>
+      <p data-i18n="results.sub">Summary across the 15,700&nbsp;km² study area, 2023 to 2026.</p>
     </div>
 
     <div class="summary-grid">
       <article class="card stat-card reveal">
-        <div class="stat-head"><span class="stat-name">Area analysed</span></div>
+        <div class="stat-head"><span class="stat-name" data-i18n="results.stat1name">Area analysed</span></div>
         <div class="stat-big">15,700 <small>km²</small></div>
-        <div class="stat-sub">Covering the study bounding box</div>
+        <div class="stat-sub" data-i18n="results.stat1sub">Covering the study bounding box</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
-          <span class="stat-name">Mean NDVI change</span>
-          <span class="trend trend--down" title="Decrease">
+          <span class="stat-name" data-i18n="results.stat2name">Mean NDVI change</span>
+          <span class="trend trend--down" data-i18n-title="results.decrease" title="Decrease">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 9v8H9"/></svg>
             0.21
           </span>
         </div>
         <div class="stat-big">0.42</div>
-        <div class="stat-sub">Down from 0.63 in 2023</div>
+        <div class="stat-sub" data-i18n="results.stat2sub">Down from 0.63 in 2023</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
-          <span class="stat-name">Water area change</span>
-          <span class="trend trend--down" title="Decrease">
+          <span class="stat-name" data-i18n="results.stat3name">Water area change</span>
+          <span class="trend trend--down" data-i18n-title="results.decrease" title="Decrease">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 9v8H9"/></svg>
             18%
           </span>
         </div>
         <div class="stat-big">&minus;18<small>%</small></div>
-        <div class="stat-sub">Surface water and saturated soil</div>
+        <div class="stat-sub" data-i18n="results.stat3sub">Surface water and saturated soil</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
-          <span class="stat-name">Cloud-free scenes</span>
-          <span class="trend trend--up" title="Enough for a reliable comparison">
+          <span class="stat-name" data-i18n="results.stat4name">Cloud-free scenes</span>
+          <span class="trend trend--up" data-i18n-title="results.enough" title="Enough for a reliable comparison">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 17 7 7M7 15V7h8"/></svg>
-            ok
+            <span data-i18n="results.stat4trend">ok</span>
           </span>
         </div>
         <div class="stat-big">24</div>
-        <div class="stat-sub">Used across both dates</div>
+        <div class="stat-sub" data-i18n="results.stat4sub">Used across both dates</div>
       </article>
     </div>
 
     <div class="charts-grid">
       <div class="card chart-card reveal">
-        <h3>Mean NDVI by month</h3>
-        <div class="chart-box"><canvas id="ndviChart" aria-label="Line chart of mean NDVI by month for 2023 and 2026"></canvas></div>
+        <h3 data-i18n="results.chart1">Mean NDVI by month</h3>
+        <div class="chart-box"><canvas id="ndviChart" data-i18n-aria-label="results.chart1Aria" aria-label="Line chart of mean NDVI by month for 2023 and 2026"></canvas></div>
       </div>
       <div class="card chart-card reveal">
-        <h3>Land cover share</h3>
-        <div class="chart-box"><canvas id="landCoverChart" aria-label="Bar chart of land cover share for 2023 and 2026"></canvas></div>
+        <h3 data-i18n="results.chart2">Land cover share</h3>
+        <div class="chart-box"><canvas id="landCoverChart" data-i18n-aria-label="results.chart2Aria" aria-label="Bar chart of land cover share for 2023 and 2026"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Irrigation alert — 3-day rain forecast for the centre of the map
+         (Open-Meteo, no API key needed) -->
+    <div class="card irrigation-card reveal is-loading" id="irrigationCard" role="status" aria-live="polite">
+      <div class="irrigation-head">
+        <h3 data-i18n="irrigation.title">Irrigation alert</h3>
+        <span class="irrigation-place">
+          <span data-i18n="irrigation.centre">Centre of the map</span>
+          <span class="irrigation-coords" id="irrigationCoords"></span>
+        </span>
+      </div>
+
+      <div class="irrigation-body">
+        <span class="irrigation-dot" aria-hidden="true"></span>
+        <div class="irrigation-text">
+          <p class="irrigation-headline" id="irrigationHeadline" data-i18n="irrigation.loading">Checking the rain forecast…</p>
+          <p class="irrigation-msg" id="irrigationMsg"></p>
+        </div>
+        <span class="irrigation-total" id="irrigationTotal"></span>
+      </div>
+
+      <div class="irrigation-days" id="irrigationDays" hidden></div>
+      <p class="irrigation-credit" data-i18n="irrigation.sub">Rain forecast for the centre of the map, from Open-Meteo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Crop season guide ============ -->
+<section id="crop-year" class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="crop.eyebrow">Crop calendar</span>
+      <h2 data-i18n="crop.title">What a crop year looks like in Punjab</h2>
+      <p data-i18n="crop.sub">Vegetation greenness never stays still &mdash; it rises and falls with each crop. Switch between the two main seasons to see the shape of the year.</p>
+    </div>
+
+    <div class="card crop-card reveal">
+      <div class="crop-head">
+        <div class="crop-toggles" id="cropNames" role="group" data-i18n-aria-label="crop.chooseAria" aria-label="Choose a crop"></div>
+        <span class="crop-badge" id="cropBadge">Illustrative pattern, not measured data</span>
+      </div>
+      <p class="crop-summary" id="cropSummary"></p>
+      <div class="chart-box">
+        <canvas id="cropChart" data-i18n-aria-label="crop.chartAria" aria-label="Line chart of a typical NDVI curve month by month for wheat and paddy"></canvas>
+      </div>
+      <p class="crop-footnote" id="cropFootnote">This is why you must compare the same time of year when looking for change.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Try NDVI yourself ============ -->
+<section id="ndvi" class="section section--alt">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="ndvi.eyebrow">NDVI calculator</span>
+      <h2 data-i18n="ndvi.title">Try NDVI yourself</h2>
+      <p data-i18n="ndvi.sub">Move the two sliders to see how a satellite works out how green a field is.</p>
+    </div>
+
+    <div class="card ndvi-card reveal">
+      <div class="ndvi-grid">
+        <div class="ndvi-controls">
+          <div class="ndvi-slider">
+            <div class="ndvi-slider-head">
+              <label for="ndviRed" data-i18n="ndvi.red">Red</label>
+              <output id="ndviRedVal" for="ndviRed">0.20</output>
+            </div>
+            <input type="range" id="ndviRed" min="0" max="1" step="0.01" value="0.2" data-i18n-aria-label="ndvi.red" aria-label="Red">
+          </div>
+
+          <div class="ndvi-slider">
+            <div class="ndvi-slider-head">
+              <label for="ndviNir" data-i18n="ndvi.nir">Near-infrared (NIR)</label>
+              <output id="ndviNirVal" for="ndviNir">0.60</output>
+            </div>
+            <input type="range" id="ndviNir" min="0" max="1" step="0.01" value="0.6" data-i18n-aria-label="ndvi.nir" aria-label="Near-infrared (NIR)">
+          </div>
+
+          <p class="ndvi-formula"><span data-i18n="ndvi.result">NDVI</span> = <span data-i18n="ndvi.formula">(NIR − Red) / (NIR + Red)</span></p>
+
+          <button class="btn btn-quiet ndvi-reset" type="button" id="ndviReset" data-i18n-aria-label="ndvi.resetAria" aria-label="Reset the NDVI sliders" data-i18n="ndvi.reset">Reset</button>
+        </div>
+
+        <div class="ndvi-visual">
+          <div class="ndvi-bar-wrap">
+            <div class="ndvi-bar" aria-hidden="true"></div>
+            <span class="ndvi-marker" id="ndviMarker" aria-hidden="true"></span>
+          </div>
+          <p class="ndvi-value">
+            <span id="ndviScore">0.50</span>
+            <small data-i18n="ndvi.result">NDVI</small>
+          </p>
+          <p class="ndvi-explain" id="ndviExplain" role="status" aria-live="polite"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -338,9 +502,9 @@
 <section id="ai-tutor" class="section">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">Ask Gemini</span>
-      <h2>Ask AI about the results</h2>
-      <p>Curious about NDVI, clouds or what the numbers mean? Ask our AI tutor.</p>
+      <span class="eyebrow" data-i18n="chat.eyebrow">Ask Gemini</span>
+      <h2 data-i18n="chat.title">Ask AI about the results</h2>
+      <p data-i18n="chat.sub">Curious about NDVI, clouds or what the numbers mean? Ask our AI tutor.</p>
     </div>
 
     <div class="chat card reveal">
@@ -352,20 +516,26 @@
             </svg>
           </span>
           <div class="bubble-body">
-            <p>Hello! I'm your AI tutor. Ask me anything about satellite imagery, NDVI, or the analysis results above.</p>
+            <p data-i18n="chat.welcome">Hello! I'm your AI tutor. Ask me anything about satellite imagery, NDVI, or the analysis results above.</p>
           </div>
         </div>
       </div>
 
-      <div class="chat-suggestions" id="chatSuggestions" aria-label="Suggested questions">
-        <button class="chip" type="button">What does NDVI actually measure?</button>
-        <button class="chip" type="button">Why might the water area have shrunk?</button>
-        <button class="chip" type="button">How reliable is this comparison?</button>
+      <div class="chat-suggestions" id="chatSuggestions" data-i18n-aria-label="chat.suggestAria" aria-label="Suggested questions">
+        <button class="chip" type="button" data-i18n="chat.chip1">What does NDVI actually measure?</button>
+        <button class="chip" type="button" data-i18n="chat.chip2">Why might the water area have shrunk?</button>
+        <button class="chip" type="button" data-i18n="chat.chip3">How reliable is this comparison?</button>
       </div>
 
       <form class="chat-input" id="chatForm">
-        <input type="text" id="chatInput" name="question" placeholder="Ask a question about satellite data..." autocomplete="off" aria-label="Your question">
-        <button type="submit" id="chatSend" class="btn btn-primary btn-send" aria-label="Send question">
+        <input type="text" id="chatInput" name="question" placeholder="Ask a question about satellite data..." autocomplete="off"
+               data-i18n-placeholder="chat.placeholder" data-i18n-aria-label="chat.inputAria" aria-label="Your question">
+        <button type="button" id="chatMic" class="btn btn-quiet chat-mic" data-i18n-aria-label="chat.mic" aria-label="Ask by voice" aria-pressed="false" hidden>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/>
+          </svg>
+        </button>
+        <button type="submit" id="chatSend" class="btn btn-primary btn-send" data-i18n-aria-label="chat.sendAria" aria-label="Send question">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M4 12l16-8-6 8 6 8-16-8Z"/>
           </svg>
@@ -385,8 +555,8 @@
         </svg>
       </span>
       <div>
-        <h2>Limitations of satellite data</h2>
-        <p>Satellite imagery shows patterns. It rarely proves a cause on its own &mdash; read these before drawing conclusions.</p>
+        <h2 data-i18n="limits.title">Limitations of satellite data</h2>
+        <p data-i18n="limits.sub">Satellite imagery shows patterns. It rarely proves a cause on its own &mdash; read these before drawing conclusions.</p>
       </div>
     </div>
 
@@ -395,42 +565,81 @@
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17a4 4 0 0 1 .8-7.9A5 5 0 0 1 17 10a3.5 3.5 0 0 1 .5 7H7Z"/></svg>
         </span>
-        <div><h3>Cloud cover</h3><p>Clouds hide the ground, so cloudy scenes must be dropped or masked out.</p></div>
+        <div><h3 data-i18n="limits.c1">Cloud cover</h3><p data-i18n="limits.c1t">Clouds hide the ground, so cloudy scenes must be dropped or masked out.</p></div>
       </div>
 
       <div class="limit-item reveal">
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9M12 9C12 6 9.5 4 6 4c0 3.5 2 5 6 5ZM12 9c0-3 2.5-5 6-5 0 3.5-2 5-6 5Z"/></svg>
         </span>
-        <div><h3>Seasonal NDVI changes</h3><p>Vegetation rises and falls with the seasons &mdash; compare like months, not like years.</p></div>
+        <div><h3 data-i18n="limits.c2">Seasonal NDVI changes</h3><p data-i18n="limits.c2t">Vegetation rises and falls with the seasons &mdash; compare like months, not like years.</p></div>
       </div>
 
       <div class="limit-item reveal">
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
         </span>
-        <div><h3>Mixed pixels</h3><p>One pixel can blend crops, roads and water, so small features are easy to miss.</p></div>
+        <div><h3 data-i18n="limits.c3">Mixed pixels</h3><p data-i18n="limits.c3t">One pixel can blend crops, roads and water, so small features are easy to miss.</p></div>
       </div>
 
       <div class="limit-item reveal">
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 9a3 3 0 1 1 4.2 2.7c-.8.4-1.2 1-1.2 1.8v.5"/><path d="M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>
         </span>
-        <div><h3>“What”, not “why”</h3><p>Images reveal that a change happened &mdash; not what caused it.</p></div>
+        <div><h3 data-i18n="limits.c4">“What”, not “why”</h3><p data-i18n="limits.c4t">Images reveal that a change happened &mdash; not what caused it.</p></div>
       </div>
 
       <div class="limit-item reveal">
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M7 19V9M12 19V5M17 19v-7"/></svg>
         </span>
-        <div><h3>Sensor &amp; date comparability</h3><p>Different sensors and dates have different resolution and calibration &mdash; match them carefully.</p></div>
+        <div><h3 data-i18n="limits.c5">Sensor &amp; date comparability</h3><p data-i18n="limits.c5t">Different sensors and dates have different resolution and calibration &mdash; match them carefully.</p></div>
       </div>
 
       <div class="limit-item reveal">
         <span class="limit-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v6M12 21v-6"/><path d="M12 9 6 21M12 9l6 12M4 21h16"/><circle cx="12" cy="4" r="1.6"/></svg>
         </span>
-        <div><h3>Ground checks needed</h3><p>Satellite findings should be verified on the ground before being treated as fact.</p></div>
+        <div><h3 data-i18n="limits.c6">Ground checks needed</h3><p data-i18n="limits.c6t">Satellite findings should be verified on the ground before being treated as fact.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Test yourself (quiz) ============ -->
+<section id="quiz" class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="quiz.eyebrow">Quiz</span>
+      <h2 data-i18n="quiz.title">Test yourself</h2>
+      <p data-i18n="quiz.sub">Eight quick questions on NDVI, resolution, clouds, seasons and the limits of satellite data. Tap an answer for instant feedback.</p>
+    </div>
+
+    <div class="quiz card reveal" id="quizCard">
+      <div class="quiz-top">
+        <span class="quiz-count" id="quizCount">Question 1 of 8</span>
+        <span class="quiz-score" id="quizScore">Score 0/0</span>
+      </div>
+
+      <div class="quiz-progress" id="quizProgressTrack" role="progressbar"
+           aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" data-i18n-aria-label="quiz.progressAria" aria-label="Quiz progress">
+        <span class="quiz-progress-fill" id="quizProgressFill"></span>
+      </div>
+
+      <div class="quiz-stage" id="quizStage">
+        <h3 class="quiz-question" id="quizQuestion"></h3>
+        <div class="quiz-options" id="quizOptions" role="group" data-i18n-aria-label="quiz.answerAria" aria-label="Answer choices"></div>
+        <p class="quiz-feedback" id="quizFeedback" role="status" aria-live="polite" hidden></p>
+        <div class="quiz-foot">
+          <button class="btn btn-primary" type="button" id="quizNext" hidden>Next question</button>
+        </div>
+      </div>
+
+      <div class="quiz-result" id="quizResult" hidden>
+        <p class="quiz-result-label" data-i18n="quiz.scored">You scored</p>
+        <p class="quiz-result-score" id="quizResultScore">0 / 8</p>
+        <p class="quiz-result-msg" id="quizResultMsg"></p>
+        <button class="btn btn-primary" type="button" id="quizRetry" data-i18n="quiz.retry">Try again</button>
       </div>
     </div>
   </div>
@@ -440,31 +649,69 @@
 <section id="sources" class="section">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">References</span>
-      <h2>Free data sources</h2>
-      <p>All of the imagery used here is open and free to reuse.</p>
+      <span class="eyebrow" data-i18n="sources.eyebrow">References</span>
+      <h2 data-i18n="sources.title">Free data sources</h2>
+      <p data-i18n="sources.sub">All of the imagery used here is open and free to reuse.</p>
     </div>
     <div class="sources-grid">
       <div class="card source-card reveal">
         <h3>Copernicus Browser</h3>
-        <p>Sentinel-2 satellite imagery &mdash; European Space Agency.</p>
-        <a href="https://browser.dataspace.copernicus.eu/" target="_blank" rel="noopener">Visit site</a>
+        <p data-i18n="sources.s1">Sentinel-2 satellite imagery &mdash; European Space Agency.</p>
+        <a href="https://browser.dataspace.copernicus.eu/" target="_blank" rel="noopener" data-i18n="sources.visit">Visit site</a>
       </div>
       <div class="card source-card reveal">
         <h3>USGS EarthExplorer</h3>
-        <p>Landsat 8/9 satellite imagery &mdash; United States Geological Survey.</p>
-        <a href="https://earthexplorer.usgs.gov/" target="_blank" rel="noopener">Visit site</a>
+        <p data-i18n="sources.s2">Landsat 8/9 satellite imagery &mdash; United States Geological Survey.</p>
+        <a href="https://earthexplorer.usgs.gov/" target="_blank" rel="noopener" data-i18n="sources.visit">Visit site</a>
       </div>
       <div class="card source-card reveal">
         <h3>NASA Worldview</h3>
-        <p>Near real-time NASA satellite imagery and data.</p>
-        <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">Visit site</a>
+        <p data-i18n="sources.s3">Near real-time NASA satellite imagery and data.</p>
+        <a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener" data-i18n="sources.visit">Visit site</a>
       </div>
       <div class="card source-card reveal">
         <h3>Google Earth Engine</h3>
-        <p>Cloud platform for planetary-scale geospatial analysis.</p>
-        <a href="https://earthengine.google.com/" target="_blank" rel="noopener">Visit site</a>
+        <p data-i18n="sources.s4">Cloud platform for planetary-scale geospatial analysis.</p>
+        <a href="https://earthengine.google.com/" target="_blank" rel="noopener" data-i18n="sources.visit">Visit site</a>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Report &amp; share ============ -->
+<section id="share" class="section section--alt">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow" data-i18n="share.eyebrow">Report &amp; share</span>
+      <h2 data-i18n="share.title">Take it with you</h2>
+      <p data-i18n="share.sub">Print a clean one-page summary, share this page, or open it on a phone with a QR code.</p>
+    </div>
+
+    <div class="share-card card reveal">
+      <div class="share-actions">
+        <button class="btn btn-primary" type="button" id="printBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/>
+          </svg>
+          <span data-i18n="share.print">Download report</span>
+        </button>
+        <button class="btn btn-quiet" type="button" id="shareBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <path d="m8.7 10.6 6.6-4.2M8.7 13.4l6.6 4.2"/>
+          </svg>
+          <span data-i18n="share.share">Share</span>
+        </button>
+        <button class="btn btn-quiet" type="button" id="qrBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.4"/><rect x="14" y="3" width="7" height="7" rx="1.4"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.4"/>
+            <path d="M14 14h3v3h-3zM18.5 18.5h2v2h-2zM14 19h2.5v2H14zM19.5 14h1.5v1.5h-1.5z"/>
+          </svg>
+          <span data-i18n="share.qr">Show QR code</span>
+        </button>
+      </div>
+      <p class="share-note" data-i18n="share.note">The report opens your browser&rsquo;s print dialog &mdash; choose &ldquo;Save as PDF&rdquo; to keep a copy. It prints only the problem statement, the data sources and their resolution, the key results and the limitations.</p>
     </div>
   </div>
 </section>
@@ -482,11 +729,11 @@
           </svg>
         </span>
         <h3>Satellite Watch</h3>
-        <p>Satellite Data for Local Problem Solving &mdash; an educational project showing how free Earth-observation data can answer local environmental questions.</p>
+        <p data-i18n="footer.about">Satellite Data for Local Problem Solving &mdash; an educational project showing how free Earth-observation data can answer local environmental questions.</p>
       </div>
 
       <div class="footer-col">
-        <h4>Data sources</h4>
+        <h4 data-i18n="footer.sources">Data sources</h4>
         <ul>
           <li><a href="https://browser.dataspace.copernicus.eu/" target="_blank" rel="noopener">Copernicus Browser</a></li>
           <li><a href="https://earthexplorer.usgs.gov/" target="_blank" rel="noopener">USGS EarthExplorer</a></li>
@@ -496,28 +743,50 @@
       </div>
 
       <div class="footer-col">
-        <h4>Links</h4>
+        <h4 data-i18n="footer.links">Links</h4>
         <ul>
-          <li><a href="#explore">Maps</a></li>
-          <li><a href="#method">Method</a></li>
-          <li><a href="#results">Results</a></li>
-          <li><a href="#ai-tutor">Ask Gemini</a></li>
-          <li><a href="#limits">Limitations</a></li>
+          <li><a href="#explore" data-i18n="nav.maps">Maps</a></li>
+          <li><a href="#method" data-i18n="nav.method">Method</a></li>
+          <li><a href="#results" data-i18n="nav.results">Results</a></li>
+          <li><a href="#ai-tutor" data-i18n="nav.ask">Ask Gemini</a></li>
+          <li><a href="#limits" data-i18n="footer.limits">Limitations</a></li>
         </ul>
       </div>
     </div>
 
     <div class="footer-bottom">
-      <p>&copy; 2026 Satellite Watch. Built for educational purposes.</p>
-      <p>Imagery &copy; ESA Copernicus, NASA and USGS.</p>
+      <p data-i18n="footer.copyright">&copy; 2026 Satellite Watch. Built for educational purposes.</p>
+      <p data-i18n="footer.imagery">Imagery &copy; ESA Copernicus, NASA and USGS.</p>
     </div>
   </div>
 </footer>
 
+<!-- QR code modal -->
+<div class="modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" hidden>
+  <div class="modal-card">
+    <button class="modal-close" type="button" id="qrClose" data-i18n-aria-label="qr.close" aria-label="Close QR code">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 6l12 12M18 6 6 18"/>
+      </svg>
+    </button>
+    <h3 id="qrTitle" data-i18n="qr.title">Scan this page</h3>
+    <p class="modal-sub" data-i18n="qr.sub">Open iota&radic;-1 on a phone</p>
+    <div class="qr-holder" id="qrHolder"></div>
+    <p class="qr-note" id="qrNote">Loading&hellip;</p>
+  </div>
+</div>
+
+<!-- Shared toast (share link copied, etc.) -->
+<div class="toast" id="siteToast" role="status" aria-live="polite" hidden></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="js/config.js"></script>
+<script src="js/quiz-data.js"></script>
+<script src="js/translations.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/app.js"></script>
 <script src="js/map.js"></script>
+<script src="js/features.js"></script>
 </body>
 </html>

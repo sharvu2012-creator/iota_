@@ -10,6 +10,24 @@
   var doc = document;
 
   /* ---------------------------------------------------------
+     Translation helpers
+     Everything falls back to the English text if js/i18n.js has
+     not loaded (or was blocked), so the page never breaks.
+     --------------------------------------------------------- */
+  function tr(key, fallback, vars) {
+    try {
+      if (window.SW_I18N) return window.SW_I18N.t(key, vars, fallback);
+    } catch (e) {}
+    return fallback;
+  }
+  function langName() {
+    try {
+      if (window.SW_I18N) return window.SW_I18N.name();
+    } catch (e) {}
+    return 'English';
+  }
+
+  /* ---------------------------------------------------------
      Splash screen
      --------------------------------------------------------- */
   var splash = doc.getElementById('splash-screen');
@@ -84,15 +102,21 @@
   function applyTheme(theme) {
     if (theme === 'dark') root.setAttribute('data-theme', 'dark');
     else root.removeAttribute('data-theme');
-    if (themeToggle) {
-      themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
-      themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-    }
+    refreshThemeLabel();
     updateChartTheme();
     // Let other modules (the map) restyle themselves too.
     try {
       doc.dispatchEvent(new CustomEvent('sw:themechange', { detail: { theme: theme } }));
     } catch (e) {}
+  }
+
+  function refreshThemeLabel() {
+    if (!themeToggle) return;
+    var dark = currentTheme() === 'dark';
+    themeToggle.setAttribute('aria-pressed', String(dark));
+    themeToggle.setAttribute('aria-label', dark
+      ? tr('theme.light', 'Switch to light mode')
+      : tr('theme.dark', 'Switch to dark mode'));
   }
 
   var storedTheme = null;
@@ -107,6 +131,10 @@
       try { window.localStorage.setItem('sw-theme', next); } catch (e) {}
     });
   }
+
+  // The theme button's label is theme-dependent, so it is refreshed here
+  // rather than through data-i18n attributes.
+  doc.addEventListener('sw:language', refreshThemeLabel);
 
   /* ---------------------------------------------------------
      2. Maps — the interactive Leaflet map lives in js/map.js
@@ -165,6 +193,7 @@
       wrap.innerHTML = '<div class="bubble-body">' + html + '</div>';
     }
     chatMessages.appendChild(wrap);
+    if (role === 'bot' && !isError) attachSpeak(wrap);
     scrollToLatest();
     return wrap;
   }
@@ -185,12 +214,12 @@
   }
 
   // Fallback text shown when the API gives us nothing usable to display.
-  var CHAT_ERROR = 'Something went wrong, please try again';
+  function chatError() { return tr('chat.error', 'Something went wrong, please try again'); }
 
   // Only ever render a real string as an error. Anything else (missing, an
   // object, null) becomes the friendly fallback so raw JSON can never leak in.
   function errorMessage(value) {
-    return typeof value === 'string' && value.trim() ? value.trim() : CHAT_ERROR;
+    return typeof value === 'string' && value.trim() ? value.trim() : chatError();
   }
 
   // Extra context sent alongside the question. Safe when the config hasn't
@@ -214,12 +243,15 @@
 
     const question = text;
     const results = chatResults();
+    // The selected language travels with the question, so the tutor
+    // answers in the language the visitor is reading.
+    const language = langName();
 
     try {
       const res = await fetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, results })
+        body: JSON.stringify({ question, results, language })
       });
 
       const data = await res.json();
@@ -232,10 +264,10 @@
         // and the raw JSON is never displayed.
         addBubble('bot', formatText(data.answer));
       } else {
-        addBubble('bot', formatText(CHAT_ERROR), true);
+        addBubble('bot', formatText(chatError()), true);
       }
     } catch (err) {
-      addBubble('bot', formatText(CHAT_ERROR), true);
+      addBubble('bot', formatText(chatError()), true);
     } finally {
       // Always runs, success or failure.
       hideTyping();
@@ -256,6 +288,194 @@
       if (chip) askGemini(chip.textContent);
     });
   }
+
+  /* ---------------------------------------------------------
+     Voice
+     Speak your question (SpeechRecognition) and listen to an
+     answer (speechSynthesis). If the browser has neither, both
+     buttons simply stay hidden.
+     --------------------------------------------------------- */
+  var SPEAKER_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l5-3.5v12l-5-3.5H4z"/><path d="M16 9a4.5 4.5 0 0 1 0 6M18.6 6.4a8 8 0 0 1 0 11.2"/></svg>';
+
+  function dispatchToast(message) {
+    if (!message) return;
+    try { doc.dispatchEvent(new CustomEvent('sw:toast', { detail: { message: message } })); } catch (e) {}
+  }
+
+  function speechCode() {
+    try { if (window.SW_I18N) return window.SW_I18N.speech(); } catch (e) {}
+    return 'en-IN';
+  }
+
+  /* ---------- microphone ---------- */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var chatMic = doc.getElementById('chatMic');
+  var recognition = null;
+  var listening = false;
+
+  function refreshMic() {
+    if (!chatMic) return;
+    chatMic.setAttribute('aria-label', listening
+      ? tr('chat.micStop', 'Stop listening')
+      : tr('chat.mic', 'Ask by voice'));
+    chatMic.setAttribute('aria-pressed', String(listening));
+    chatMic.classList.toggle('is-listening', listening);
+  }
+
+  if (chatMic) {
+    if (!SR) {
+      chatMic.hidden = true;           // quietly: no speech recognition here
+    } else {
+      chatMic.hidden = false;
+      try { recognition = new SR(); } catch (e) { recognition = null; }
+      if (recognition) {
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = function () { listening = true; refreshMic(); };
+        recognition.onend = function () { listening = false; refreshMic(); };
+        recognition.onerror = function (ev) {
+          listening = false;
+          refreshMic();
+          var code = (ev && ev.error) ? ev.error : '';
+          if (code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture') {
+            dispatchToast(tr('chat.micDenied', 'Microphone access was blocked.'));
+          } else if (code !== 'aborted' && code !== 'no-speech') {
+            dispatchToast(tr('chat.micFail', 'Voice input is not available right now.'));
+          }
+        };
+        recognition.onresult = function (ev) {
+          var text = '';
+          try { text = ev.results[0][0].transcript || ''; } catch (err) { text = ''; }
+          text = text.trim();
+          if (!text) return;
+          if (chatInput) chatInput.value = text;
+          askGemini(text);
+        };
+
+        chatMic.addEventListener('click', function () {
+          if (listening) {
+            try { recognition.stop(); } catch (e) {}
+            return;
+          }
+          try {
+            recognition.lang = speechCode();
+            recognition.start();
+          } catch (e) {
+            dispatchToast(tr('chat.micFail', 'Voice input is not available right now.'));
+          }
+        });
+        refreshMic();
+      } else {
+        chatMic.hidden = true;
+      }
+    }
+  }
+
+  /* ---------- speaker on every answer ---------- */
+  var canSpeak = (typeof window.speechSynthesis !== 'undefined') &&
+    (typeof window.SpeechSynthesisUtterance === 'function');
+  var speakingWrap = null;
+
+  function voiceFor(code) {
+    try {
+      var want = String(code || 'en').slice(0, 2).toLowerCase();
+      var voices = window.speechSynthesis.getVoices() || [];
+      for (var i = 0; i < voices.length; i++) {
+        var v = voices[i] || {};
+        if (String(v.lang || '').toLowerCase().replace('_', '-').indexOf(want) === 0) return v;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function bubbleText(el) {
+    if (!el) return '';
+    return String(el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function stopSpeaking() {
+    if (!canSpeak) return;
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    if (speakingWrap) {
+      var b = speakingWrap.querySelector('.speak-btn');
+      if (b) {
+        b.classList.remove('is-speaking');
+        b.setAttribute('aria-pressed', 'false');
+        b.setAttribute('aria-label', tr('chat.listen', 'Read this answer aloud'));
+        var t = b.querySelector('.speak-text');
+        if (t) t.textContent = tr('chat.listenLabel', 'Listen');
+      }
+      speakingWrap = null;
+    }
+  }
+
+  // Adds the "listen" button to one answer bubble (bot messages only).
+  function attachSpeak(wrap) {
+    if (!canSpeak || !wrap || wrap.id === 'typingBubble') return;
+    var body = wrap.querySelector('.bubble-body');
+    if (!body) return;
+    // Read the text before the button is added, so its own label is never spoken.
+    var spoken = bubbleText(body);
+    if (!spoken) return;
+    wrap.__speakText = spoken;
+
+    var tools = body.querySelector('.bubble-tools');
+    if (tools) return;                       // already has one
+    tools = doc.createElement('div');
+    tools.className = 'bubble-tools';
+    body.appendChild(tools);
+
+    var btn = doc.createElement('button');
+    btn.type = 'button';
+    btn.className = 'speak-btn';
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', tr('chat.listen', 'Read this answer aloud'));
+    btn.innerHTML = SPEAKER_ICON + '<span class="speak-text"></span>';
+    btn.querySelector('.speak-text').textContent = tr('chat.listenLabel', 'Listen');
+
+    btn.addEventListener('click', function () {
+      if (speakingWrap === wrap) { stopSpeaking(); return; }
+      stopSpeaking();
+      var text = wrap.__speakText || '';
+      if (!text) return;
+      try {
+        var utter = new window.SpeechSynthesisUtterance(text);
+        var code = speechCode();
+        utter.lang = code;
+        var voice = voiceFor(code);
+        if (voice) utter.voice = voice;
+        utter.onend = function () { if (speakingWrap === wrap) stopSpeaking(); };
+        utter.onerror = function () { if (speakingWrap === wrap) stopSpeaking(); };
+        speakingWrap = wrap;
+        btn.classList.add('is-speaking');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.setAttribute('aria-label', tr('chat.stopReading', 'Stop reading aloud'));
+        btn.querySelector('.speak-text').textContent = tr('chat.stopLabel', 'Stop');
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        stopSpeaking();
+      }
+    });
+
+    tools.appendChild(btn);
+  }
+  // The greeting bubble is already in the page when this script runs.
+  if (canSpeak && chatMessages) {
+    Array.prototype.forEach.call(chatMessages.querySelectorAll('.bubble--bot'), attachSpeak);
+  }
+
+  doc.addEventListener('sw:language', function () {
+    stopSpeaking();
+    refreshMic();
+    if (!canSpeak || !chatMessages) return;
+    Array.prototype.forEach.call(chatMessages.querySelectorAll('.speak-btn'), function (b) {
+      var t = b.querySelector('.speak-text');
+      if (t) t.textContent = tr('chat.listenLabel', 'Listen');
+      b.setAttribute('aria-label', tr('chat.listen', 'Read this answer aloud'));
+    });
+  });
 
   /* Expose the chat so other modules (the map) can ask questions. */
   window.SatelliteWatch = {
