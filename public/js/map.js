@@ -25,7 +25,6 @@
   var study = CFG.studyArea || {};
   var CENTER = (study.center && study.center.length === 2) ? study.center : [30.9010, 75.8573];
   var ZOOM = (typeof study.zoom === 'number') ? study.zoom : 11;
-  var BOUNDS = study.bounds || { north: 31.5, south: 30.3, east: 76.5, west: 75.2 };
   var MAX_ZOOM = 18;
 
   if (typeof L === 'undefined') {
@@ -93,26 +92,30 @@
   /* ---------------------------------------------------------
      Map
      --------------------------------------------------------- */
+  // The view is set here, once. Afterwards it may only move when the user
+  // searches for a place or presses "find my location".
+  //
+  // Do NOT re-introduce maxBounds here: Leaflet attaches _panInsideMaxBounds
+  // to every moveend (see L.Map#setMaxBounds), so any drag that ends outside
+  // the box is panned straight back, and maxBoundsViscosity makes the drag
+  // fight the pointer on the way out. Both read as "the map snaps back".
   var map = L.map(host, {
     center: CENTER,
     zoom: ZOOM,
-    minZoom: 3,
+    minZoom: 4,
     maxZoom: MAX_ZOOM,
     zoomControl: false,
-    scrollWheelZoom: true,
     wheelPxPerZoomLevel: 100,
     worldCopyJump: true,
     preferCanvas: true,
-    maxBoundsViscosity: 0.5
+    // All interaction is on; nothing in this file disables any of it.
+    dragging: true,
+    touchZoom: true,
+    scrollWheelZoom: true,
+    doubleClickZoom: true,
+    boxZoom: true,
+    keyboard: true
   });
-
-  // Keep the study area framed, but never trap the user: searching
-  // for a place outside the box releases the bounds (see goToResult).
-  var PAD = 1.2;
-  map.setMaxBounds([
-    [BOUNDS.south - PAD, BOUNDS.west - PAD],
-    [BOUNDS.north + PAD, BOUNDS.east + PAD]
-  ]);
 
   /* ---------- Base layers ---------- */
   var satellite = L.tileLayer(
@@ -690,15 +693,10 @@
     if (searchInput) searchInput.setAttribute('aria-expanded', 'true');
   }
 
-  function outsideBounds(lat, lon) {
-    return lat < BOUNDS.south - PAD || lat > BOUNDS.north + PAD ||
-      lon < BOUNDS.west - PAD || lon > BOUNDS.east + PAD;
-  }
-
+  // Searching is one of only two things allowed to move the view.
   function goToResult(item) {
     var lat = parseFloat(item.lat), lon = parseFloat(item.lon);
     if (!isFinite(lat) || !isFinite(lon)) return;
-    if (outsideBounds(lat, lon)) map.setMaxBounds(null);
     map.setView([lat, lon], 13);
     openWeather(lat, lon);
     if (searchInput) {

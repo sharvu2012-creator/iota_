@@ -164,7 +164,10 @@
       <p>Zoom in, switch base layers, add rain and vegetation overlays, then click anywhere for a local weather forecast.</p>
     </div>
 
-    <div class="map-shell reveal">
+    <!-- No "reveal" here on purpose: the fade-up leaves a CSS transform
+         (and a 0.6s transition) on an ancestor of the Leaflet map, which
+         breaks its drag/pointer maths. -->
+    <div class="map-shell">
       <div class="map-frame">
         <div id="map" class="map-canvas" role="region" aria-label="Interactive satellite map of the study area"></div>
 
