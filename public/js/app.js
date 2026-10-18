@@ -124,12 +124,35 @@
   var sending = false;
 
   function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
+
+  // Escape first — model output is never trusted — then apply a light formatting pass:
+  //   **bold** -> <strong>, blank line -> new paragraph, single newline -> <br>
   function formatText(text) {
-    return escapeHtml(text)
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
+    var safe = escapeHtml(text).replace(/\r\n?/g, '\n');
+    return safe.split(/\n{2,}/).map(function (para) {
+      return '<p>' + para
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+  }
+
+  // Keep the newest message in view (honours reduced-motion).
+  function scrollToLatest() {
+    if (!chatMessages) return;
+    var top = chatMessages.scrollHeight;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce && typeof chatMessages.scrollTo === 'function') {
+      chatMessages.scrollTo({ top: top, behavior: 'smooth' });
+    } else {
+      chatMessages.scrollTop = top;
+    }
   }
 
   function addBubble(role, html, isError) {
@@ -142,7 +165,7 @@
       wrap.innerHTML = '<div class="bubble-body">' + html + '</div>';
     }
     chatMessages.appendChild(wrap);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    scrollToLatest();
     return wrap;
   }
 
@@ -154,26 +177,33 @@
     wrap.innerHTML = '<span class="bubble-avatar" aria-hidden="true">' + BOT_ICON + '</span>' +
       '<div class="bubble-body"><span class="typing"><span></span><span></span><span></span></span></div>';
     chatMessages.appendChild(wrap);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    scrollToLatest();
   }
   function hideTyping() {
     var t = doc.getElementById('typingBubble');
     if (t) t.remove();
   }
 
-  // Turn whatever the API returned into something worth showing the user.
-  function serverErrorMessage(r) {
-    var data = r.data || {};
-    if (data.error) return String(data.error);
-    if (data.detail) return String(data.detail);
-    if (r.raw) {
-      var text = String(r.raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      if (text) return text.slice(0, 300);
-    }
-    return 'The AI tutor returned an error (HTTP ' + r.status + '). Please try again.';
+  // Fallback text shown when the API gives us nothing usable to display.
+  var CHAT_ERROR = 'Something went wrong, please try again';
+
+  // Only ever render a real string as an error. Anything else (missing, an
+  // object, null) becomes the friendly fallback so raw JSON can never leak in.
+  function errorMessage(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : CHAT_ERROR;
   }
 
-  function askGemini(text) {
+  // Extra context sent alongside the question. Safe when the config hasn't
+  // loaded yet — JSON.stringify simply drops an undefined value.
+  function chatResults() {
+    try {
+      return (window.CONFIG && window.CONFIG.results) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function askGemini(text) {
     text = (text || '').trim();
     if (!text || sending) return;
     sending = true;
@@ -182,36 +212,36 @@
     if (chatInput) chatInput.value = '';
     showTyping();
 
-    fetch('/api/explain', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text })
-    })
-      .then(function (res) {
-        // Read as text first: an error page is not always JSON.
-        return res.text().then(function (raw) {
-          var data = null;
-          try { data = raw ? JSON.parse(raw) : null; } catch (e) { data = null; }
-          return { ok: res.ok, status: res.status, data: data, raw: raw };
-        });
-      })
-      .then(function (r) {
-        hideTyping();
-        var data = r.data || {};
-        var reply = data.reply || data.response;
-        if (r.ok && reply) {
-          addBubble('bot', formatText(reply));
-        } else {
-          // Surface the server's own error text instead of a generic message.
-          addBubble('bot', formatText(serverErrorMessage(r)), true);
-        }
-      })
-      .catch(function (err) {
-        hideTyping();
-        var why = err && err.message ? ' (' + err.message + ')' : '';
-        addBubble('bot', formatText('Sorry, I could not reach the AI tutor' + why + '. Please try again in a moment.'), true);
-      })
-      .then(function () { sending = false; });
+    const question = text;
+    const results = chatResults();
+
+    try {
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, results })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        // Amber bubble — errors only.
+        addBubble('bot', formatText(errorMessage(data.error)), true);
+      } else if (typeof data.answer === 'string' && data.answer.trim()) {
+        // Normal reply bubble, answer text only. No slice, no truncation,
+        // and the raw JSON is never displayed.
+        addBubble('bot', formatText(data.answer));
+      } else {
+        addBubble('bot', formatText(CHAT_ERROR), true);
+      }
+    } catch (err) {
+      addBubble('bot', formatText(CHAT_ERROR), true);
+    } finally {
+      // Always runs, success or failure.
+      hideTyping();
+      sending = false;
+      scrollToLatest();
+    }
   }
 
   if (chatForm) {
