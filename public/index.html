@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>iota√-1 | Small changes, seen from space</title>
-<meta name="description" content="Satellite Data for Local Problem Solving — use free satellite imagery to investigate local environmental problems.">
+<title>iota√-1 | Satellite Data for Local Problem Solving</title>
+<meta name="description" content="iota√-1 — Satellite Data for Local Problem Solving. Use free satellite imagery to investigate local environmental problems.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -25,8 +25,8 @@
     <circle cx="12" cy="12" r="3.4"/>
     <ellipse cx="12" cy="12" rx="9.4" ry="4.2" transform="rotate(-28 12 12)"/>
   </svg>
-  <h1>Satellite Watch</h1>
-  <p class="splash-subtitle" data-i18n="splash.sub">Earth observation made simple</p>
+  <h1>iota√-1</h1>
+  <p class="splash-subtitle" data-i18n="splash.sub">Satellite Data for Local Problem Solving</p>
   <div class="splash-loading">
     <span data-i18n="splash.loading">Loading satellite data...</span>
     <div class="splash-bar"><div class="splash-fill"></div></div>
@@ -77,12 +77,15 @@
   </div>
 </header>
 
+<!-- Offline notice (shown when the browser reports no connection) -->
+<p class="offline-note" id="offlineNote" role="status" aria-live="polite" hidden data-i18n="offline.note">Live map and Gemini need internet.</p>
+
 <main id="main">
 
 <!-- Print-only report header (hidden on screen, shown when printing) -->
 <div class="print-only print-head">
   <h1>iota&radic;-1</h1>
-  <p data-i18n="print.sub">Small changes, seen from space &mdash; one-page satellite summary report</p>
+  <p data-i18n="print.sub">Satellite Data for Local Problem Solving &mdash; one-page satellite summary report</p>
   <p class="print-meta"><span data-i18n="print.area">Punjab Agricultural Belt</span> &middot; <span data-i18n="print.generated">generated</span> <span id="reportDate"></span></p>
 </div>
 
@@ -117,7 +120,7 @@
   <div class="hero-overlay" aria-hidden="true"></div>
 
   <div class="container hero-content">
-    <span class="eyebrow" data-i18n="hero.eyebrow">Satellite Watch</span>
+    <span class="eyebrow" data-i18n="hero.eyebrow">iota√-1</span>
     <h1 class="hero-title"><span data-i18n="hero.titleA">Satellite Data for</span> <span class="grad" data-i18n="hero.titleB">Local Problem Solving</span></h1>
     <p class="hero-subtitle" data-i18n="hero.sub">See your neighbourhood from space &mdash; and turn free satellite imagery into answers.</p>
     <div class="hero-actions">
@@ -135,8 +138,8 @@
         <div class="hero-stat-label" data-i18n="hero.stat2label">Revisit time</div>
       </div>
       <div class="hero-stat">
-        <div class="hero-stat-value" data-i18n="hero.stat3value">6 yrs</div>
-        <div class="hero-stat-label" data-i18n="hero.stat3label">Years analysed</div>
+        <div class="hero-stat-value" id="heroYears">—</div>
+        <div class="hero-stat-label" id="heroYearsLabel">Years analysed</div>
       </div>
     </div>
   </div>
@@ -159,7 +162,7 @@
       <div>
         <h3 id="problemTitle" data-i18n="problem.area">Punjab Agricultural Belt</h3>
         <p id="problemStatement" data-i18n="problem.text">Punjab's agricultural belt &mdash; once called the breadbasket of India &mdash; is under growing water stress. Groundwater is falling, temperatures are rising, and yields in some areas have plateaued or declined.</p>
-        <p class="research-question"><strong data-i18n="problem.rqLabel">Research question:</strong> <span id="researchQuestion" data-i18n="problem.rq">How have vegetation health and water coverage changed across Punjab's agricultural belt between 2023 and 2026?</span></p>
+        <p class="research-question"><strong data-i18n="problem.rqLabel">Research question:</strong> <span id="researchQuestion">How have vegetation health and water coverage changed across Punjab's agricultural belt?</span></p>
       </div>
     </div>
   </div>
@@ -212,6 +215,7 @@
       </div>
 
       <p class="map-notes" data-i18n="map.notes">Satellite background is for context (about 1 m, varies by area). Sentinel-2 is 10 m. Rain radar is coarse and may have gaps; NASA IMERG is about 10 km. Weather values are model data, not field measurements.</p>
+      <p class="map-touch-note" data-i18n="map.touchNote">On a phone, one finger scrolls the page. Pinch or use the + and &minus; buttons to zoom the map.</p>
 
       <!-- Compare two spots -->
       <div class="compare-panel card reveal" id="comparePanel">
@@ -234,7 +238,7 @@
         <p class="compare-status" id="compareStatus" role="status" aria-live="polite" hidden></p>
 
         <div class="chart-box compare-chart" id="compareChartBox" hidden>
-          <canvas id="compareChart" data-i18n-aria-label="compare.chartAria" aria-label="Grouped bar chart of daily rainfall for spot A and spot B"></canvas>
+          <canvas id="compareChart" role="img" data-i18n-aria-label="compare.chartAria" aria-label="Grouped bar chart of daily rainfall for spot A and spot B"></canvas>
         </div>
 
         <p class="compare-verdict" id="compareVerdict" hidden></p>
@@ -267,6 +271,38 @@
             <strong id="measureM2">0</strong>
           </div>
         </div>
+
+        <!-- Field greenness (NDVI) — never a made-up per-field value.
+             The visitor types a reading from Copernicus/EO Browser, or
+             uses the regional average, clearly labelled as not theirs. -->
+        <div class="field-ndvi" id="fieldNdvi" hidden>
+          <div class="field-ndvi-head">
+            <h4 data-i18n="field.title">Field greenness (NDVI)</h4>
+            <p class="field-ndvi-what" data-i18n="field.what">NDVI (Normalised Difference Vegetation Index) is a number from &minus;1 to 1 that shows how green and dense the plants are. Higher means more green cover.</p>
+          </div>
+
+          <div class="field-ndvi-controls">
+            <div class="field-ndvi-input-wrap">
+              <label for="fieldNdviInput" data-i18n="field.enter">Enter the NDVI you read from Copernicus Browser or EO Browser</label>
+              <input type="number" id="fieldNdviInput" class="field-ndvi-input" min="-1" max="1" step="0.01"
+                     inputmode="decimal" placeholder="0.45" aria-describedby="fieldNdviSource">
+            </div>
+            <div class="field-ndvi-regional">
+              <button type="button" class="btn btn-quiet" id="fieldNdviRegional" data-i18n="field.useRegional">Use the regional average</button>
+              <p class="field-ndvi-regional-note" id="fieldNdviSource" hidden></p>
+            </div>
+          </div>
+
+          <div class="field-ndvi-reading" id="fieldNdviReading" role="status" aria-live="polite" hidden>
+            <span class="field-ndvi-swatch" id="fieldNdviSwatch" aria-hidden="true"></span>
+            <div class="field-ndvi-reading-text">
+              <p class="field-ndvi-value"><span id="fieldNdviValue">0.45</span> <small>NDVI</small></p>
+              <p class="field-ndvi-mean" id="fieldNdviMeaning"></p>
+            </div>
+          </div>
+
+          <p class="field-ndvi-caution" data-i18n="field.caution">NDVI shows that greenness changed, not why. Check the field on the ground (water, pests, nutrients, crop stage). Compare the same crop stage and season.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -294,16 +330,36 @@
               <th scope="col" data-i18n="method.th.index">Index</th>
             </tr>
           </thead>
-          <tbody>
-            <tr><td>2023-06-15</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20230615</td><td>4%</td><td>NDVI 0.63</td></tr>
-            <tr><td>2023-11-02</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20231102</td><td>9%</td><td>NDVI 0.45</td></tr>
-            <tr><td>2024-05-28</td><td>Landsat 9 OLI-2</td><td>30 m</td><td>LC09_L3_148039</td><td>7%</td><td>NDVI 0.54</td></tr>
-            <tr><td>2025-06-09</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20250609</td><td>12%</td><td>NDVI 0.48</td></tr>
-            <tr><td>2026-06-15</td><td>Sentinel-2 MSI</td><td>10 m</td><td>T43RDP_20260615</td><td>5%</td><td>NDVI 0.42</td></tr>
+          <tbody id="sceneTableBody">
+            <!-- Rows are built from public/data/study.js by js/app.js,
+                 so the table can never disagree with the cards. -->
           </tbody>
         </table>
       </div>
-      <p class="table-note" data-i18n="method.tableNote">Cloud-free scenes only. NDVI = (NIR &minus; Red) / (NIR + Red).</p>
+      <p class="table-note" data-i18n="method.tableNote">Low-cloud scenes only (under 15% cloud cover). NDVI = (NIR &minus; Red) / (NIR + Red).</p>
+    </div>
+
+    <!-- How the numbers were worked out (values filled in by js/app.js) -->
+    <div class="card method-how reveal" id="methodHow">
+      <h3 data-i18n="method.howTitle">How these numbers were computed</h3>
+      <ul class="method-how-list">
+        <li>
+          <strong data-i18n="method.howNdviLabel">NDVI formula</strong>
+          <span data-i18n="method.howNdvi">NDVI = (NIR &minus; Red) / (NIR + Red), where NIR is near-infrared and Red is red reflectance.</span>
+        </li>
+        <li>
+          <strong data-i18n="method.howBandsLabel">Bands used</strong>
+          <span id="methodBands">Sentinel-2 and Landsat 9 near-infrared and red bands</span>
+        </li>
+        <li>
+          <strong data-i18n="method.howBoundsLabel">Study bounding box</strong>
+          <span id="methodBounds">Study bounding box</span>
+        </li>
+        <li>
+          <strong data-i18n="method.howSameLabel">Comparison</strong>
+          <span id="methodSame">The same months are compared year to year.</span>
+        </li>
+      </ul>
     </div>
 
     <ol class="stepper reveal">
@@ -342,62 +398,79 @@
     <div class="section-head reveal">
       <span class="eyebrow" data-i18n="results.eyebrow">Results</span>
       <h2 data-i18n="results.title">What the data shows</h2>
-      <p data-i18n="results.sub">Summary across the 15,700&nbsp;km² study area, 2023 to 2026.</p>
+      <p id="resultsSub">Summary of the study area.</p>
     </div>
+
+    <!-- Data status badge — text comes from data/study.js "status" -->
+    <p class="data-status is-sample" id="dataStatus" role="status">Data status</p>
 
     <div class="summary-grid">
       <article class="card stat-card reveal">
         <div class="stat-head"><span class="stat-name" data-i18n="results.stat1name">Area analysed</span></div>
-        <div class="stat-big">15,700 <small>km²</small></div>
+        <div class="stat-big"><span id="statArea">—</span> <small>km²</small></div>
         <div class="stat-sub" data-i18n="results.stat1sub">Covering the study bounding box</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
-          <span class="stat-name" data-i18n="results.stat2name">Mean NDVI change</span>
-          <span class="trend trend--down" data-i18n-title="results.decrease" title="Decrease">
+          <span class="stat-name" id="statNdviName">Mean NDVI change</span>
+          <span class="trend trend--down" id="statNdviTrend" title="Decrease">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 9v8H9"/></svg>
-            0.21
+            <span id="statNdviDir">—</span>
           </span>
         </div>
-        <div class="stat-big">0.42</div>
-        <div class="stat-sub" data-i18n="results.stat2sub">Down from 0.63 in 2023</div>
+        <div class="stat-big" id="statNdviChange">—</div>
+        <div class="stat-sub" id="statNdviSub">Computed from the scene table below</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
           <span class="stat-name" data-i18n="results.stat3name">Water area change</span>
-          <span class="trend trend--down" data-i18n-title="results.decrease" title="Decrease">
+          <span class="trend trend--down" id="statWaterTrend" title="Decrease">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 9v8H9"/></svg>
-            18%
+            <span id="statWaterDir">—</span>
           </span>
         </div>
-        <div class="stat-big">&minus;18<small>%</small></div>
-        <div class="stat-sub" data-i18n="results.stat3sub">Surface water and saturated soil</div>
+        <div class="stat-big"><span id="statWaterValue">—</span><small>%</small></div>
+        <div class="stat-sub" id="statWaterSub">Water share of the land area</div>
       </article>
 
       <article class="card stat-card reveal">
         <div class="stat-head">
-          <span class="stat-name" data-i18n="results.stat4name">Cloud-free scenes</span>
+          <span class="stat-name" data-i18n="results.stat4name">Low-cloud scenes only (under 15% cloud cover)</span>
           <span class="trend trend--up" data-i18n-title="results.enough" title="Enough for a reliable comparison">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 17 7 7M7 15V7h8"/></svg>
             <span data-i18n="results.stat4trend">ok</span>
           </span>
         </div>
-        <div class="stat-big">24</div>
-        <div class="stat-sub" data-i18n="results.stat4sub">Used across both dates</div>
+        <div class="stat-big" id="statScenes">—</div>
+        <div class="stat-sub" data-i18n="results.stat4sub">Every scene in the table below</div>
       </article>
     </div>
 
     <div class="charts-grid">
       <div class="card chart-card reveal">
         <h3 data-i18n="results.chart1">Mean NDVI by month</h3>
-        <div class="chart-box"><canvas id="ndviChart" data-i18n-aria-label="results.chart1Aria" aria-label="Line chart of mean NDVI by month for 2023 and 2026"></canvas></div>
+        <div class="chart-box"><canvas id="ndviChart" role="img" data-i18n-aria-label="results.chart1Aria" aria-label="Line chart of mean NDVI by month for 2023 and 2026"></canvas></div>
       </div>
       <div class="card chart-card reveal">
         <h3 data-i18n="results.chart2">Land cover share</h3>
-        <div class="chart-box"><canvas id="landCoverChart" data-i18n-aria-label="results.chart2Aria" aria-label="Bar chart of land cover share for 2023 and 2026"></canvas></div>
+        <div class="chart-box"><canvas id="landCoverChart" role="img" data-i18n-aria-label="results.chart2Aria" aria-label="Bar chart of land cover share for 2023 and 2026"></canvas></div>
       </div>
+    </div>
+
+    <!-- Same time of year, year by year — built from the scene table -->
+    <div class="card chart-card chart-card--wide reveal" id="sameMonthCard">
+      <h3 data-i18n="results.chart3">NDVI at the same time of year</h3>
+      <div class="chart-box chart-box--same">
+        <canvas id="sameMonthChart" role="img" data-i18n-aria-label="results.chart3Aria" aria-label="Line chart of NDVI in late May to mid June, year by year"></canvas>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot" aria-hidden="true"></span><span data-i18n="results.legendS2">Sentinel-2 (10 m)</span></span>
+        <span class="legend-item"><span class="legend-square" aria-hidden="true"></span><span data-i18n="results.legendL9">Landsat 9 (30 m)</span></span>
+      </div>
+      <p class="chart-note" data-i18n="results.chart3note">Different sensors and resolutions. Compare with care.</p>
+      <p class="chart-note" data-i18n="results.chart3few">Few scenes per year. This shows a pattern, not proof of cause.</p>
     </div>
 
     <!-- Irrigation alert — 3-day rain forecast for the centre of the map
@@ -442,7 +515,7 @@
       </div>
       <p class="crop-summary" id="cropSummary"></p>
       <div class="chart-box">
-        <canvas id="cropChart" data-i18n-aria-label="crop.chartAria" aria-label="Line chart of a typical NDVI curve month by month for wheat and paddy"></canvas>
+        <canvas id="cropChart" role="img" data-i18n-aria-label="crop.chartAria" aria-label="Line chart of a typical NDVI curve month by month for wheat and paddy"></canvas>
       </div>
       <p class="crop-footnote" id="cropFootnote">This is why you must compare the same time of year when looking for change.</p>
     </div>
@@ -681,7 +754,7 @@
             <circle cx="12" cy="12" r="3.3"/><ellipse cx="12" cy="12" rx="9.2" ry="4.2" transform="rotate(-28 12 12)"/>
           </svg>
         </span>
-        <h3>Satellite Watch</h3>
+        <h3>iota√-1</h3>
         <p data-i18n="footer.about">Satellite Data for Local Problem Solving &mdash; an educational project showing how free Earth-observation data can answer local environmental questions.</p>
       </div>
 
@@ -708,7 +781,7 @@
     </div>
 
     <div class="footer-bottom">
-      <p data-i18n="footer.copyright">&copy; 2026 Satellite Watch. Built for educational purposes.</p>
+      <p data-i18n="footer.copyright">&copy; 2026 iota&radic;-1. Built for educational purposes.</p>
       <p data-i18n="footer.imagery">Imagery &copy; ESA Copernicus, NASA and USGS.</p>
     </div>
   </div>
@@ -748,10 +821,12 @@
     </div>
 
     <div class="chat-suggestions" id="chatSuggestions" data-i18n-aria-label="chat.suggestAria" aria-label="Suggested questions">
-      <button class="chip" type="button" data-i18n="chat.chip1">What does NDVI actually measure?</button>
-      <button class="chip" type="button" data-i18n="chat.chip2">Why might the water area have shrunk?</button>
-      <button class="chip" type="button" data-i18n="chat.chip3">How reliable is this comparison?</button>
+      <button class="chip" type="button" data-fallback="1" data-i18n="chat.chip1">What does NDVI actually measure?</button>
+      <button class="chip" type="button" data-fallback="2" data-i18n="chat.chip2">Why might the water area have shrunk?</button>
+      <button class="chip" type="button" data-fallback="3" data-i18n="chat.chip3">How reliable is this comparison?</button>
     </div>
+
+    <p class="chat-offline" id="chatOffline" hidden data-i18n="offline.chat">The AI tutor needs internet. The three suggested questions still work offline.</p>
 
     <form class="chat-input" id="chatForm">
       <input type="text" id="chatInput" name="question" placeholder="Ask a question about satellite data..." autocomplete="off"
@@ -864,6 +939,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="data/study.js"></script>
+<script src="js/study.js"></script>
 <script src="js/config.js"></script>
 <script src="js/quiz-data.js"></script>
 <script src="js/translations.js"></script>

@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — quiz questions
+   iota√-1 — quiz questions
    ------------------------------------------------------------
    Loaded by index.html before js/features.js.
 

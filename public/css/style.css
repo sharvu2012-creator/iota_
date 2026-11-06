@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — Stylesheet
+   iota√-1 — Stylesheet
    ------------------------------------------------------------
    Tokens : bg #0b1a14 · light #f6f8f4 · primary #2e9e5b
             accent #2a7fba · warning #e0a526
@@ -1664,6 +1664,246 @@ html[data-lang="pa"] .btn {
 }
 
 /* ============================================================
+   13b. Data honesty, same-month chart, field NDVI, offline
+   ============================================================ */
+
+/* ---------- Data status badge (sample / verified) ---------- */
+.data-status {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 22px;
+  padding: 9px 16px 9px 34px;
+  border-radius: var(--pill);
+  border: 1px solid;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.data-status::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.data-status.is-sample {
+  color: #8a5a00;
+  background: rgba(224, 165, 38, 0.16);
+  border-color: rgba(224, 165, 38, 0.5);
+}
+.data-status.is-verified {
+  color: var(--primary);
+  background: rgba(46, 158, 91, 0.13);
+  border-color: rgba(46, 158, 91, 0.42);
+}
+:root[data-theme="dark"] .data-status.is-sample { color: #f0c25b; }
+
+/* ---------- "How these numbers were computed" ---------- */
+.method-how { margin-top: 22px; padding: 24px 26px; }
+.method-how h3 { font-size: 1.05rem; margin: 0 0 14px; }
+.method-how-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.method-how-list li { display: grid; gap: 2px; font-size: 0.9rem; color: var(--muted); }
+.method-how-list strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--section-fg);
+}
+
+/* ---------- Same-month trend chart ---------- */
+.chart-card--wide { margin-top: 20px; }
+.chart-box--same { height: 320px; }
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 20px;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.legend-dot { flex: none; width: 11px; height: 11px; border-radius: 50%; background: var(--primary); }
+.legend-square { flex: none; width: 11px; height: 11px; border-radius: 2px; background: var(--accent); }
+.chart-note { margin: 10px 0 0; font-size: 0.82rem; color: var(--muted); text-align: center; }
+.chart-note + .chart-note { margin-top: 4px; }
+
+/* ---------- Your field: NDVI reading ---------- */
+.field-ndvi { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.field-ndvi-head h4 { font-size: 1rem; margin: 0 0 6px; }
+.field-ndvi-what { margin: 0 0 14px; font-size: 0.88rem; color: var(--muted); }
+.field-ndvi-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+.field-ndvi-input-wrap label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: var(--muted); }
+.field-ndvi-input {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--section-fg);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.field-ndvi-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field-ndvi-regional { display: grid; gap: 6px; justify-items: start; }
+.field-ndvi-regional .btn { min-height: 46px; }
+.field-ndvi-regional-note { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--warning); }
+.field-ndvi-reading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.field-ndvi-swatch {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+.field-ndvi-value {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--section-fg);
+  font-variant-numeric: tabular-nums;
+}
+.field-ndvi-value small {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.field-ndvi-mean { margin: 3px 0 0; font-size: 0.9rem; color: var(--section-fg); }
+.field-ndvi-caution {
+  margin: 14px 0 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--warning);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ---------- Offline notice ---------- */
+.offline-note {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: var(--pill);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: #3d2a00;
+  background: #f7d98a;
+  border: 1px solid #d9b45a;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+.chat-offline {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: #f0c25b;
+  background: rgba(224, 165, 38, 0.12);
+  border: 1px solid rgba(224, 165, 38, 0.38);
+}
+
+/* ---------- Chat: thinking state + saved-answer tag ---------- */
+.typing-text { display: block; margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+.bubble-tag {
+  display: inline-block;
+  margin: 0 0 6px !important;
+  padding: 3px 8px;
+  border-radius: var(--pill);
+  font-size: 0.68rem !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: rgba(46, 158, 91, 0.14);
+  border: 1px solid rgba(46, 158, 91, 0.35);
+}
+#chatForm.is-thinking input { opacity: 0.7; }
+
+/* ---------- Map note for touch screens ---------- */
+.map-touch-note { display: none; margin: 6px 0 0; font-size: 0.8rem; color: var(--muted); }
+@media (pointer: coarse) { .map-touch-note { display: block; } }
+
+/* ---------- Phones: 360px layout, big enough tap targets ---------- */
+@media (max-width: 767px) {
+  .offline-note { top: 74px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 26px; }
+  .method-how { padding: 20px; }
+  .data-status { width: 100%; }
+  .field-ndvi-controls { grid-template-columns: 1fr; }
+  .field-ndvi-regional, .field-ndvi-regional .btn { width: 100%; }
+  .chart-box--same { height: 240px; }
+
+  /* Every tappable control is at least 44px tall. */
+  .logo,
+  .theme-toggle,
+  .chip,
+  .lang-btn,
+  .mobile-menu-btn,
+  .chat-input input,
+  .chat-send,
+  .map-search,
+  .map-search-input,
+  .map-search-clear,
+  .map-search-item,
+  .map-ctl-btn,
+  .map-opacity-toggle,
+  .crop-toggle,
+  .measure-actions .btn,
+  input[type="range"] {
+    min-height: 44px;
+  }
+  .map-search { align-items: center; }
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 42px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .summary-grid { gap: 14px; }
+  .stat-card { padding: 20px; }
+  .chart-card { padding: 18px; }
+  .chart-box { height: 240px; }
+  .chart-legend { gap: 8px 14px; font-size: 0.78rem; }
+}
+
+/* ============================================================
    14. Print — a clean one-page summary
    ============================================================ */
 @media print {
@@ -1704,6 +1944,8 @@ html[data-lang="pa"] .btn {
   .stepper,
   .chat,
   .map-shell,
+  .offline-note,
+  .chat-offline,
   .btn,
   button,
   .eyebrow,
@@ -1769,6 +2011,51 @@ html[data-lang="pa"] .btn {
   .stat-big { font-size: 14pt !important; color: #000000 !important; }
   .stat-sub { font-size: 7.5pt !important; color: #333333 !important; }
   .trend { border: 1px solid #999999 !important; background: #ffffff !important; color: #000000 !important; font-size: 7pt !important; }
+
+  /* Data-status badge — the report always says how sure the numbers are */
+  .data-status {
+    display: block !important;
+    width: auto !important;
+    margin: 0 0 6pt !important;
+    padding: 4pt 8pt !important;
+    border: 1px solid #000000 !important;
+    border-radius: 3pt !important;
+    font-size: 7.5pt !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+  .data-status::before { display: none !important; }
+
+  /* How the numbers were computed */
+  .method-how {
+    display: block !important;
+    margin: 0 0 6pt !important;
+    padding: 7pt 10pt !important;
+    border: 1px solid #999999 !important;
+    background: #ffffff !important;
+    break-inside: avoid;
+  }
+  .method-how h3 { font-size: 10pt !important; margin: 0 0 4pt !important; color: #000000 !important; }
+  .method-how-list { gap: 4pt !important; }
+  .method-how-list li { font-size: 8pt !important; color: #000000 !important; }
+  .method-how-list strong { font-size: 7pt !important; color: #000000 !important; }
+
+  /* Same time of year, year by year */
+  #sameMonthCard {
+    display: block !important;
+    margin: 6pt 0 0 !important;
+    padding: 6pt 8pt !important;
+    border: 1px solid #999999 !important;
+    background: #ffffff !important;
+    break-inside: avoid;
+  }
+  #sameMonthCard h3 { font-size: 10pt !important; margin: 0 0 4pt !important; color: #000000 !important; }
+  .chart-box--same { height: 150pt !important; }
+  #sameMonthCard canvas { width: 100% !important; height: 150pt !important; }
+  .chart-legend { gap: 4pt 12pt !important; margin-top: 4pt !important; font-size: 7.5pt !important; color: #000000 !important; }
+  .legend-dot { background: #2e9e5b !important; }
+  .legend-square { background: #2a7fba !important; }
+  .chart-note { margin: 3pt 0 0 !important; font-size: 7.5pt !important; color: #333333 !important; text-align: left !important; }
 
   /* Limitations */
   .callout {

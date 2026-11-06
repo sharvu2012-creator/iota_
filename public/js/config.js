@@ -1,5 +1,5 @@
 /* ============================================
-   SATELLITE WATCH — Configuration (served copy)
+   iota√-1 — Configuration (served copy)
    ============================================
    This is the copy the page actually loads
    (public/index.html → js/config.js).
@@ -60,8 +60,8 @@ const CONFIG = {
      While a value still contains "PASTE_", the page shows a
      friendly "coming soon" message instead of using it. */
   whatsappLink: "PASTE_WHATSAPP_GROUP_LINK_HERE",
-  feedbackFormEmbedUrl: "https://docs.google.com/forms/d/e/1FAIpQLScmZSvC-md_pIYo9t9M-Habu8SBGpSdNQzr4XnbTmnpb5HMVg/viewform?embedded=true",
-  feedbackFormLink: "https://docs.google.com/forms/d/e/1FAIpQLScmZSvC-md_pIYo9t9M-Habu8SBGpSdNQzr4XnbTmnpb5HMVg/viewform",
+  feedbackFormEmbedUrl: "PASTE_GOOGLE_FORM_EMBED_URL_HERE",
+  feedbackFormLink: "PASTE_GOOGLE_FORM_LINK_HERE",
 
   /* ----- Problem statement ----- */
   problemStatement: `
@@ -95,14 +95,12 @@ const CONFIG = {
     }
   },
 
-  /* ----- Results summary ----- */
+  /* ----- Results summary -----
+     Every number below is filled in from data/study.js after this
+     object is created (see the bottom of this file), so the cards,
+     the table, the charts and the AI tutor always agree. */
   results: {
-    cards: [
-      { label: "Area analysed", value: "15,700 km²" },
-      { label: "Mean NDVI change", value: "−0.21" },
-      { label: "Water area change", value: "−18%" },
-      { label: "Cloud-free scenes used", value: "24" }
-    ]
+    cards: []
   },
 
   /* ----- Crop season guide (NDVI curve) -----
@@ -190,3 +188,42 @@ const CONFIG = {
 // Also expose the config on window so any script loaded later can find it
 // regardless of load order.
 if (typeof window !== 'undefined') { window.CONFIG = CONFIG; }
+
+/* ------------------------------------------------------------------
+   Results summary — derived from data/study.js (single source of truth)
+   ------------------------------------------------------------------ */
+(function buildResultsSummary() {
+  var sd = window.StudyData;
+  if (!sd) return;
+
+  var y = sd.years();
+  var nd = sd.ndviChange();
+  var water = sd.waterChange();
+  var area = sd.fmt(sd.areaKm2());
+  var scenes = sd.sceneCount();
+
+  var ndviText = nd ? (sd.signed(nd.change, 2)) : '—';
+  var waterText = (water == null) ? '—' : (sd.signed(water, 0) + '%');
+
+  CONFIG.results = {
+    status: sd.status(),
+    areaKm2: sd.areaKm2(),
+    years: y.count ? (y.first + '–' + y.last) : '',
+    yearsAnalysed: y.count,
+    scenes: scenes,
+    lowCloudRule: 'Low-cloud scenes only (under 15% cloud cover)',
+    sameMonthWindow: sd.comparisonWindow(),
+    ndviChange: nd ? nd.change : null,
+    ndviFrom: nd ? nd.from : null,
+    ndviTo: nd ? nd.to : null,
+    ndviFromYear: nd ? nd.fromYear : null,
+    ndviToYear: nd ? nd.toYear : null,
+    waterChangePercent: water,
+    cards: [
+      { label: 'Area analysed', value: area + ' km²' },
+      { label: 'Mean NDVI change', value: ndviText },
+      { label: 'Water area change', value: waterText },
+      { label: 'Low-cloud scenes used', value: String(scenes) }
+    ]
+  };
+})();

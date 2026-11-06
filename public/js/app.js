@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — App logic
+   iota√-1 — App logic
    Navbar · theme toggle · comparison slider · layer switch ·
    Ask Gemini chat (/api/explain) · Chart.js · scroll reveals
    ============================================================ */
@@ -212,7 +212,8 @@
     wrap.className = 'bubble bubble--bot';
     wrap.id = 'typingBubble';
     wrap.innerHTML = '<span class="bubble-avatar" aria-hidden="true">' + BOT_ICON + '</span>' +
-      '<div class="bubble-body"><span class="typing"><span></span><span></span><span></span></span></div>';
+      '<div class="bubble-body"><span class="typing"><span></span><span></span><span></span></span>' +
+      '<span class="typing-text">' + escapeHtml(tr('chat.thinking', 'Thinking…')) + '</span></div>';
     chatMessages.appendChild(wrap);
     scrollToLatest();
   }
@@ -240,48 +241,141 @@
     }
   }
 
-  async function askGemini(text) {
+  /* ---------------------------------------------------------
+     AI tutor — timeout, language, offline answers, thinking state
+     --------------------------------------------------------- */
+  var CHAT_TIMEOUT_MS = 15000;
+  var chatSend = doc.getElementById('chatSend');
+  var chatThinking = false;
+
+  // The tutor answers in the language the visitor is reading. The server
+  // only forwards `question`, so the instruction travels in the question.
+  function languageInstruction() {
+    var code = 'en';
+    try { if (window.SW_I18N) code = window.SW_I18N.lang(); } catch (e) {}
+    if (code === 'hi') {
+      return 'Answer in simple Hindi (Devanagari) that a farmer can understand. Keep NDVI as "NDVI". Use at most 4 sentences unless the user asks for more.';
+    }
+    if (code === 'pa') {
+      return 'Answer in simple Punjabi (Gurmukhi) that a farmer can understand. Keep NDVI as "NDVI". Use at most 4 sentences unless the user asks for more.';
+    }
+    return 'Answer in simple English that a farmer can understand. Keep NDVI as "NDVI". Use at most 4 sentences unless the user asks for more.';
+  }
+
+  // Which of the three suggested questions is this? (typed or tapped)
+  function fallbackIdFor(text) {
+    var wanted = String(text || '').trim().toLowerCase();
+    if (!wanted) return null;
+    for (var i = 1; i <= 3; i++) {
+      var chip = tr('chat.chip' + i, '');
+      if (chip && String(chip).trim().toLowerCase() === wanted) return String(i);
+    }
+    return null;
+  }
+
+  function fallbackAnswer(id) {
+    if (!id) return '';
+    var key = 'chat.fallback' + id;
+    var text = tr(key, '');
+    return (text === key) ? '' : text;
+  }
+
+  function showSavedAnswer(id) {
+    var answer = fallbackAnswer(id);
+    if (!answer) return false;
+    var tag = '<p class="bubble-tag">' + escapeHtml(tr('chat.saved', 'Saved answer — works offline')) + '</p>';
+    addBubble('bot', tag + formatText(answer));
+    return true;
+  }
+
+  function setThinking(on) {
+    chatThinking = !!on;
+    if (chatSend) {
+      chatSend.disabled = !!on;
+      chatSend.setAttribute('aria-busy', String(!!on));
+      chatSend.setAttribute('aria-label', on
+        ? tr('chat.thinking', 'Thinking…')
+        : tr('chat.sendAria', 'Send question'));
+    }
+    if (chatForm) chatForm.classList.toggle('is-thinking', !!on);
+  }
+
+  async function askGemini(text, fallbackId) {
     text = (text || '').trim();
     if (!text || sending) return;
     sending = true;
 
+    var question = text;
+    var savedId = fallbackId ? String(fallbackId) : fallbackIdFor(text);
+
     addBubble('user', formatText(text));
     if (chatInput) chatInput.value = '';
     showTyping();
+    setThinking(true);
 
-    const question = text;
-    const results = chatResults();
-    // The selected language travels with the question, so the tutor
-    // answers in the language the visitor is reading.
-    const language = langName();
-    // Earlier turns, oldest first.
-    const history = chatHistory.slice();
+    var results = chatResults();
+    var language = langName();
+    var history = chatHistory.slice();
+
+    var controller = null;
+    var timer = null;
 
     try {
-      const res = await fetch('/api/explain', {
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timer = window.setTimeout(function () {
+          try { controller.abort(); } catch (e) {}
+        }, CHAT_TIMEOUT_MS);
+      }
+
+      var res = await fetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, results, language, history })
+        body: JSON.stringify({
+          question: languageInstruction() + '\n\n' + question,
+          results: results,
+          language: language,
+          history: history
+        }),
+        signal: controller ? controller.signal : undefined
       });
 
-      const data = await res.json();
+      var data = null;
+      try { data = await res.json(); } catch (e) { data = null; }
 
-      if (!res.ok || data.error) {
-        // Amber bubble — errors only.
-        addBubble('bot', formatText(errorMessage(data.error)), true);
-      } else if (typeof data.answer === 'string' && data.answer.trim()) {
-        // Normal reply bubble, answer text only. No slice, no truncation,
-        // and the raw JSON is never displayed.
-        addBubble('bot', formatText(data.answer));
-        rememberTurn(question, data.answer);
-      } else {
+      // The server route answers with `reply`; older deployments used
+      // `answer`. Both are plain text — raw JSON is never displayed.
+      var answer = '';
+      if (data) {
+        if (typeof data.answer === 'string' && data.answer.trim()) answer = data.answer.trim();
+        else if (typeof data.reply === 'string' && data.reply.trim()) answer = data.reply.trim();
+      }
+
+      if (!res.ok || (data && data.error)) {
+        if (showSavedAnswer(savedId)) {
+          // A pre-written answer covers the three suggested questions.
+        } else if (res.status === 429) {
+          addBubble('bot', formatText(tr('chat.busy', 'The AI tutor is busy right now. Please try again in a minute.')), true);
+        } else {
+          addBubble('bot', formatText(errorMessage(data && data.error)), true);
+        }
+      } else if (answer) {
+        addBubble('bot', formatText(answer));
+        rememberTurn(question, answer);
+      } else if (!showSavedAnswer(savedId)) {
         addBubble('bot', formatText(chatError()), true);
       }
     } catch (err) {
-      addBubble('bot', formatText(chatError()), true);
+      var offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+      if (!showSavedAnswer(savedId)) {
+        addBubble('bot', formatText(offline
+          ? tr('chat.offlineError', 'You are offline. The AI tutor needs internet — please try again when you are back online.')
+          : chatError()), true);
+      }
     } finally {
-      // Always runs, success or failure.
+      if (timer) window.clearTimeout(timer);
       hideTyping();
+      setThinking(false);
       sending = false;
       scrollToLatest();
     }
@@ -296,7 +390,7 @@
   if (chatSuggestions) {
     chatSuggestions.addEventListener('click', function (e) {
       var chip = e.target.closest('.chip');
-      if (chip) askGemini(chip.textContent);
+      if (chip) askGemini(chip.textContent, chip.getAttribute('data-fallback'));
     });
   }
 
@@ -793,9 +887,178 @@
   }
 
   /* ---------------------------------------------------------
-     4. Results — Chart.js charts
+     4. Study data → hero, method box, table and result cards
+     Every number comes from data/study.js via js/study.js, so the
+     table, cards, charts and printed report cannot disagree.
      --------------------------------------------------------- */
-  if (typeof Chart !== 'undefined') {
+  var SD = window.StudyData || null;
+
+  function setText(id, text) {
+    var el = doc.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setTrend(trendId, wordId, down) {
+    var key = down ? 'results.trendDown' : 'results.trendUp';
+    var word = down ? 'decrease' : 'increase';
+    var el = doc.getElementById(trendId);
+    if (el) {
+      el.classList.toggle('trend--down', down);
+      el.classList.toggle('trend--up', !down);
+      el.setAttribute('title', tr(key, word));
+    }
+    setText(wordId, tr(key, word));
+  }
+
+  var LAND_NAMES = { cropland: 'Cropland', vegetation: 'Vegetation', water: 'Water', builtup: 'Built-up' };
+  function landLabel(id) { return tr('land.' + id, LAND_NAMES[id] || id); }
+
+  function renderStatus() {
+    var el = doc.getElementById('dataStatus');
+    if (!el || !SD) return;
+    var verified = SD.status() === 'verified';
+    el.classList.toggle('is-verified', verified);
+    el.classList.toggle('is-sample', !verified);
+    el.textContent = tr('results.statusTitle', 'Data status') + ': ' + (verified
+      ? tr('results.statusVerified', 'Computed from the scenes listed in the table.')
+      : tr('results.statusSample', 'Sample values for demonstration. Not yet verified against processed scenes.'));
+  }
+
+  // The table is built from the same rows the charts use.
+  function renderTable() {
+    var body = doc.getElementById('sceneTableBody');
+    if (!body || !SD) return;
+    body.innerHTML = '';
+    SD.scenes().forEach(function (scene) {
+      var tr = doc.createElement('tr');
+      var cloud = (scene.cloud == null) ? '' : (scene.cloud + '%');
+      var ndvi = (scene.ndvi == null) ? '' : ('NDVI ' + Number(scene.ndvi).toFixed(2));
+      [scene.date, scene.sensor, scene.resolution, scene.scene, cloud, ndvi].forEach(function (value) {
+        var td = doc.createElement('td');
+        td.textContent = (value == null) ? '' : String(value);
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function renderStudyText() {
+    if (!SD) return;
+    var y = SD.years();
+    var nd = SD.ndviChange();
+    var water = SD.waterChange();
+    var sensors = SD.sensors() || {};
+    var s2 = sensors['Sentinel-2 MSI'] || {};
+    var l9 = sensors['Landsat 9 OLI-2'] || {};
+    var b = SD.bounds() || {};
+
+    // Hero + research question
+    setText('heroYears', tr('hero.stat3value', '{n} yrs', { n: y.count }));
+    setText('heroYearsLabel', tr('hero.stat3label', 'Years analysed ({range})', { range: y.range }));
+    setText('researchQuestion', tr('problem.rq',
+      'How have vegetation health and water coverage changed across Punjab\'s agricultural belt between {from} and {to}?',
+      { from: y.first, to: y.last }));
+
+    // Method: how the numbers were computed
+    setText('methodBands', tr('method.howBands',
+      'Sentinel-2 {s2nir} and {s2red}; Landsat 9 {l9nir} and {l9red}',
+      { s2nir: s2.nirBand || 'B8', s2red: s2.redBand || 'B4', l9nir: l9.nirBand || 'B5', l9red: l9.redBand || 'B4' }));
+    if (b.north != null) {
+      setText('methodBounds', tr('method.howBounds',
+        'North {n}, south {s}, east {e}, west {w}',
+        {
+          n: Number(b.north).toFixed(1) + '°', s: Number(b.south).toFixed(1) + '°',
+          e: Number(b.east).toFixed(1) + '°', w: Number(b.west).toFixed(1) + '°'
+        }));
+    }
+    setText('methodSame', tr('method.howSame',
+      'The same months ({window}) are compared year to year.',
+      { window: SD.comparisonWindow() }));
+
+    // Results: subtitle + cards
+    setText('resultsSub', tr('results.sub',
+      'Summary across the {area} km² study area, {from} to {to}.',
+      { area: SD.fmt(SD.areaKm2()), from: y.first, to: y.last }));
+    setText('statArea', SD.fmt(SD.areaKm2()));
+    setText('statScenes', String(SD.sceneCount()));
+
+    if (nd) {
+      setText('statNdviChange', SD.signed(nd.change, 2));
+      setText('statNdviSub', tr('results.stat2sub',
+        'Mean NDVI went from {a} in {ay} to {b} in {by}',
+        { a: nd.from.toFixed(2), ay: nd.fromYear, b: nd.to.toFixed(2), by: nd.toYear }));
+      setTrend('statNdviTrend', 'statNdviDir', nd.change < 0);
+    }
+    if (water != null) {
+      setText('statWaterValue', SD.signed(water, 0));
+      setText('statWaterSub', tr('results.stat3sub',
+        'Water share of the land area, {from} to {to}',
+        { from: y.first, to: y.last }));
+      setTrend('statWaterTrend', 'statWaterDir', water < 0);
+    }
+
+    renderStatus();
+    renderTable();
+  }
+
+  /* ---------------------------------------------------------
+     5. Results — Chart.js charts from the same study data
+     --------------------------------------------------------- */
+  var ndviChart = null;
+  var landChart = null;
+  var sameChart = null;
+
+  // The server only answers in one language per request; charts keep
+  // numbers as numbers, and translated labels are refreshed on change.
+  function monthLabel(year, month) {
+    var code = 'en';
+    try { if (window.SW_I18N) code = window.SW_I18N.lang(); } catch (e) {}
+    var loc = code === 'hi' ? 'hi-IN' : (code === 'pa' ? 'pa-IN' : 'en-GB');
+    try {
+      return new Date(year, month - 1, 15).toLocaleDateString(loc, { month: 'short' }) + ' ' + year;
+    } catch (e) {
+      return String(year);
+    }
+  }
+
+  // Draws the NDVI value above every point — no extra plugin needed.
+  var pointLabelsPlugin = {
+    id: 'swPointLabels',
+    afterDatasetsDraw: function (chart) {
+      var meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data) return;
+      var ctx = chart.ctx;
+      var data = (chart.data.datasets[0] || {}).data || [];
+      ctx.save();
+      ctx.font = '600 12px Inter, system-ui, -apple-system, sans-serif';
+      ctx.fillStyle = (typeof Chart !== 'undefined' && Chart.defaults.color) || '#5b6b62';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      meta.data.forEach(function (point, i) {
+        var value = data[i];
+        if (value == null || !isFinite(value)) return;
+        ctx.fillText(Number(value).toFixed(2), point.x, point.y - 10);
+      });
+      ctx.restore();
+    }
+  };
+
+  function sameMonthRows() {
+    return SD ? SD.sameMonthScenes() : [];
+  }
+
+  function sameMonthAria() {
+    var rows = sameMonthRows();
+    var parts = rows.map(function (row) {
+      var sensor = SD.sensorFor(row) || {};
+      return SD.sceneYear(row) + ': ' + Number(row.ndvi).toFixed(2) + ' (' + (sensor.short || row.sensor) + ')';
+    });
+    return parts.join('; ');
+  }
+
+  function buildCharts() {
+    if (typeof Chart === 'undefined' || !SD) return;
+
     var t = readTheme();
     Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
     Chart.defaults.font.size = 12;
@@ -805,36 +1068,28 @@
     var PRIMARY = '#2e9e5b';
     var ACCENT = '#2a7fba';
 
+    /* ---- Mean NDVI by month (data/study.js) ---- */
+    var monthly = SD.monthly();
     var ndviCanvas = doc.getElementById('ndviChart');
-    if (ndviCanvas) {
-      charts.push(new Chart(ndviCanvas, {
+    if (ndviCanvas && monthly.series.length) {
+      var monthColours = [PRIMARY, ACCENT];
+      ndviChart = new Chart(ndviCanvas, {
         type: 'line',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-          datasets: [
-            {
-              label: '2023',
-              data: [0.35, 0.42, 0.52, 0.60, 0.63, 0.61, 0.55, 0.50, 0.48, 0.45, 0.40, 0.36],
-              borderColor: PRIMARY,
-              backgroundColor: 'rgba(46,158,91,0.14)',
+          labels: monthly.months,
+          datasets: monthly.series.map(function (row, i) {
+            return {
+              label: String(row.year),
+              data: row.values,
+              borderColor: monthColours[i % monthColours.length],
+              backgroundColor: i === 0 ? 'rgba(46,158,91,0.14)' : 'rgba(42,127,186,0.12)',
               fill: true,
               tension: 0.35,
               borderWidth: 2.5,
               pointRadius: 3,
-              pointBackgroundColor: PRIMARY
-            },
-            {
-              label: '2026',
-              data: [0.28, 0.33, 0.40, 0.46, 0.49, 0.47, 0.42, 0.38, 0.36, 0.33, 0.30, 0.27],
-              borderColor: ACCENT,
-              backgroundColor: 'rgba(42,127,186,0.12)',
-              fill: true,
-              tension: 0.35,
-              borderWidth: 2.5,
-              pointRadius: 3,
-              pointBackgroundColor: ACCENT
-            }
-          ]
+              pointBackgroundColor: monthColours[i % monthColours.length]
+            };
+          })
         },
         options: {
           responsive: true,
@@ -846,19 +1101,27 @@
             x: { grid: { display: false }, ticks: { color: t.text } }
           }
         }
-      }));
+      });
+      charts.push(ndviChart);
     }
 
+    /* ---- Land cover share (data/study.js) ---- */
+    var lc = SD.landCover();
     var landCanvas = doc.getElementById('landCoverChart');
-    if (landCanvas) {
-      charts.push(new Chart(landCanvas, {
+    if (landCanvas && lc.years.length) {
+      landChart = new Chart(landCanvas, {
         type: 'bar',
         data: {
-          labels: ['Cropland', 'Vegetation', 'Water', 'Built-up'],
-          datasets: [
-            { label: '2023', data: [62, 18, 9, 11], backgroundColor: PRIMARY, borderRadius: 8, maxBarThickness: 38 },
-            { label: '2026', data: [58, 13, 6, 23], backgroundColor: ACCENT, borderRadius: 8, maxBarThickness: 38 }
-          ]
+          labels: lc.classes.map(landLabel),
+          datasets: lc.years.map(function (row, i) {
+            return {
+              label: String(row.year),
+              data: row.values,
+              backgroundColor: i === 0 ? PRIMARY : ACCENT,
+              borderRadius: 8,
+              maxBarThickness: 38
+            };
+          })
         },
         options: {
           responsive: true,
@@ -873,7 +1136,119 @@
             x: { grid: { display: false }, ticks: { color: t.text } }
           }
         }
-      }));
+      });
+      charts.push(landChart);
+    }
+
+    /* ---- Same time of year, year by year (scene table) ---- */
+    var sameCanvas = doc.getElementById('sameMonthChart');
+    var rows = sameMonthRows();
+    if (sameCanvas && rows.length) {
+      var isLandsat = function (row) { return /landsat/i.test(String(row.sensor || '')); };
+      var styles = rows.map(function (row) { return isLandsat(row) ? 'rect' : 'circle'; });
+      var colours = rows.map(function (row) { return isLandsat(row) ? ACCENT : PRIMARY; });
+      var radii = rows.map(function (row) { return isLandsat(row) ? 8 : 5; });
+
+      sameChart = new Chart(sameCanvas, {
+        type: 'line',
+        data: {
+          labels: rows.map(function (row) { return String(SD.sceneYear(row)); }),
+          datasets: [{
+            label: 'NDVI',
+            data: rows.map(function (row) { return Number(row.ndvi); }),
+            borderColor: PRIMARY,
+            backgroundColor: 'rgba(46,158,91,0.10)',
+            fill: false,
+            tension: 0.28,
+            borderWidth: 2.5,
+            pointStyle: styles,
+            pointRadius: radii,
+            pointHoverRadius: radii.map(function (radius) { return radius + 2; }),
+            pointBackgroundColor: colours,
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 24 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: function (items) {
+                  if (!items.length) return '';
+                  var row = rows[items[0].dataIndex];
+                  return row ? monthLabel(SD.sceneYear(row), SD.sceneMonth(row)) : '';
+                },
+                label: function (item) {
+                  var row = rows[item.dataIndex] || {};
+                  var sensor = SD.sensorFor(row) || {};
+                  var name = sensor.short || String(row.sensor || '');
+                  return 'NDVI ' + Number(row.ndvi).toFixed(2) + ' · ' + name + ' (' + (row.resolution || sensor.resolution || '') + ')';
+                }
+              }
+            }
+          },
+          scales: {
+            y: { suggestedMin: 0, suggestedMax: 0.8, grid: { color: t.grid, drawBorder: false }, ticks: { color: t.text } },
+            x: { grid: { display: false }, ticks: { color: t.text } }
+          }
+        },
+        plugins: [pointLabelsPlugin]
+      });
+      charts.push(sameChart);
+
+      sameCanvas.setAttribute('aria-label',
+        tr('results.chart3Aria', 'Line chart of NDVI in late May to mid June, year by year') +
+        ' — ' + sameMonthAria());
+    }
+  }
+
+  renderStudyText();
+  buildCharts();
+
+  /* Re-word everything that is generated when the language changes. */
+  doc.addEventListener('sw:language', function () {
+    renderStudyText();
+    if (landChart && SD) {
+      landChart.data.labels = SD.landCover().classes.map(landLabel);
+      landChart.update();
+    }
+    var sameCanvas = doc.getElementById('sameMonthChart');
+    if (sameCanvas) {
+      sameCanvas.setAttribute('aria-label',
+        tr('results.chart3Aria', 'Line chart of NDVI in late May to mid June, year by year') +
+        ' — ' + sameMonthAria());
+    }
+  });
+
+  /* ---------------------------------------------------------
+     Offline state + service worker
+     --------------------------------------------------------- */
+  var offlineNote = doc.getElementById('offlineNote');
+  var chatOffline = doc.getElementById('chatOffline');
+
+  function syncOnline() {
+    var offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+    if (offlineNote) offlineNote.hidden = !offline;
+    if (chatOffline) chatOffline.hidden = !offline;
+    doc.body.classList.toggle('is-offline', offline);
+  }
+  window.addEventListener('online', syncOnline);
+  window.addEventListener('offline', syncOnline);
+  syncOnline();
+
+  // Cache the page shell + the data file so a weak connection still works.
+  if ('serviceWorker' in navigator) {
+    var secure = (window.location.protocol === 'https:' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1');
+    if (secure) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () { /* offline still works without it */ });
+      });
     }
   }
 

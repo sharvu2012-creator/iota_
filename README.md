@@ -1,4 +1,4 @@
-# Satellite Watch
+# iota√-1 — Satellite Data for Local Problem Solving
 
 A satellite data education platform for exploring Earth observation data — zero setup, zero install, zero sign-in.
 

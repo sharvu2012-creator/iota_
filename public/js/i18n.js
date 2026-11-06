@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — tiny translation engine
+   iota√-1 — tiny translation engine
    ------------------------------------------------------------
    Reads the dictionaries from js/translations.js and swaps the
    page between English, Hindi and Punjabi without a reload.

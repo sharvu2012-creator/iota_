@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — extra page features
+   iota√-1 — extra page features
    ------------------------------------------------------------
    Everything here is page-level (not map) behaviour:
      1. "Test yourself" quiz          (data in js/quiz-data.js)
@@ -782,12 +782,23 @@
     return ok;
   }
 
+  // The address people should get: the live page, without a #section or
+  // tracking query string left over from the visitor's own browsing.
+  function liveUrl() {
+    try {
+      if (window.location.origin && window.location.origin !== 'null') {
+        return window.location.origin + window.location.pathname;
+      }
+    } catch (e) {}
+    return window.location.href;
+  }
+
   var shareBtn = doc.getElementById('shareBtn');
   if (shareBtn) {
     shareBtn.addEventListener('click', function () {
-      var url = window.location.href;
+      var url = liveUrl();
       var payload = {
-        title: 'iota√-1 | Small changes, seen from space',
+        title: 'iota√-1 | Satellite Data for Local Problem Solving',
         text: T('share.text', "Satellite data for local problem solving — see how Punjab's fields changed from space."),
         url: url
       };
@@ -842,7 +853,7 @@
 
   function openQr() {
     if (!qrModal || !qrHolder) return;
-    var url = window.location.href;
+    var url = liveUrl();
     qrLastFocus = doc.activeElement;
     qrHolder.innerHTML = '';
     if (qrNote) {

@@ -1,5 +1,5 @@
 /* ============================================================
-   Satellite Watch — Interactive Leaflet map
+   iota√-1 — Interactive Leaflet map
    ------------------------------------------------------------
    - Base layers (radio): Esri World Imagery, Sentinel-2
      cloudless by EOX, OpenStreetMap streets
@@ -124,8 +124,10 @@
     wheelPxPerZoomLevel: 100,
     worldCopyJump: true,
     preferCanvas: true,
-    // All interaction is on; nothing in this file disables any of it.
-    dragging: true,
+    // All interaction is on. The one exception is a one-finger drag on a
+    // touch screen: that would trap the page inside the map, so phones
+    // scroll with one finger and zoom with pinch or the + / − buttons.
+    dragging: !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches),
     touchZoom: true,
     scrollWheelZoom: true,
     doubleClickZoom: true,
@@ -256,6 +258,27 @@
   L.control.zoom({ position: 'topright' }).addTo(map);
   L.control.layers(baseLayers, overlays, { position: 'topright', collapsed: true }).addTo(map);
   L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 140 }).addTo(map);
+
+  // Leaflet's own buttons get a translated accessible name.
+  function labelMapControls() {
+    var zoomIn = host.querySelector('.leaflet-control-zoom-in');
+    var zoomOut = host.querySelector('.leaflet-control-zoom-out');
+    var layers = host.querySelector('.leaflet-control-layers-toggle');
+    if (zoomIn) {
+      zoomIn.setAttribute('aria-label', T('map.zoomIn', 'Zoom in'));
+      zoomIn.setAttribute('title', T('map.zoomIn', 'Zoom in'));
+    }
+    if (zoomOut) {
+      zoomOut.setAttribute('aria-label', T('map.zoomOut', 'Zoom out'));
+      zoomOut.setAttribute('title', T('map.zoomOut', 'Zoom out'));
+    }
+    if (layers) {
+      layers.setAttribute('aria-label', T('map.layers', 'Map layers'));
+      layers.setAttribute('title', T('map.layers', 'Map layers'));
+    }
+  }
+  labelMapControls();
+  onLanguage(labelMapControls);
 
   // Opacity panel (one slider per overlay)
   var OpacityControl = L.Control.extend({
@@ -1153,6 +1176,8 @@
     if (measurePoly) {
       measurePoly.setTooltipContent(T('measure.haShort', '{v} ha', { v: measureNumber(ha, 2) }));
     }
+    // The field greenness panel appears once the outline is a real field.
+    if (fieldPanel) fieldPanel.hidden = measurePts.length < 3;
   }
 
   function measurePaint() {
@@ -1201,6 +1226,11 @@
     if (measureClear) measureClear.hidden = true;
     if (measureReadout) measureReadout.hidden = true;
     if (measureHint) measureHint.textContent = T('measure.hint', 'Tap the map to outline your field.');
+    if (fieldPanel) fieldPanel.hidden = true;
+    if (fieldInput) fieldInput.value = '';
+    fieldState.mode = 'manual';
+    fieldState.manual = null;
+    fieldRender();
   }
 
   function measureSetActive(on) {
@@ -1246,6 +1276,121 @@
     }
     measureRender();
   });
+
+  /* ---------------------------------------------------------
+     Field greenness (NDVI)
+     We never make up a per-field satellite value. The visitor
+     either types a reading they took in Copernicus/EO Browser,
+     or uses the regional average — always labelled as regional.
+     --------------------------------------------------------- */
+  var fieldPanel = doc.getElementById('fieldNdvi');
+  var fieldInput = doc.getElementById('fieldNdviInput');
+  var fieldRegionalBtn = doc.getElementById('fieldNdviRegional');
+  var fieldSource = doc.getElementById('fieldNdviSource');
+  var fieldReading = doc.getElementById('fieldNdviReading');
+  var fieldSwatch = doc.getElementById('fieldNdviSwatch');
+  var fieldValue = doc.getElementById('fieldNdviValue');
+  var fieldMeaning = doc.getElementById('fieldNdviMeaning');
+
+  var fieldState = { mode: 'manual', manual: null, regional: null };
+
+  /* ONE PLACE TO CHANGE when a real per-field API exists.
+     Give this function the outlined field and return an NDVI number.
+     Today: the value the visitor typed, or the regional average. */
+  function readFieldNdvi(field) {
+    if (field.mode === 'regional') return field.regional;
+    return field.manual;
+  }
+
+  function regionalNdvi() {
+    try {
+      var sd = window.StudyData;
+      if (sd && typeof sd.latestNdvi === 'function') {
+        var value = sd.latestNdvi();
+        if (typeof value === 'number' && isFinite(value)) return value;
+      }
+    } catch (e) {}
+    try {
+      if (window.CONFIG && window.CONFIG.results && typeof window.CONFIG.results.ndviTo === 'number') {
+        return window.CONFIG.results.ndviTo;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function fieldColour(value) {
+    if (value < 0.2) return '#a9743f';
+    if (value < 0.4) return '#d0b53c';
+    if (value < 0.6) return '#7fbf63';
+    return '#2e9e5b';
+  }
+
+  function fieldMeaningFor(value) {
+    if (value < 0.2) return T('field.lvl1', 'Below 0.2 — bare soil, water or very sparse vegetation.');
+    if (value < 0.4) return T('field.lvl2', '0.2 to 0.4 — sparse or stressed vegetation.');
+    if (value < 0.6) return T('field.lvl3', '0.4 to 0.6 — moderate, healthy vegetation.');
+    return T('field.lvl4', 'Above 0.6 — dense, healthy vegetation.');
+  }
+
+  function fieldRender() {
+    if (!fieldPanel) return;
+    var value = readFieldNdvi(fieldState);
+    if (value == null || typeof value !== 'number' || !isFinite(value)) {
+      if (fieldReading) fieldReading.hidden = true;
+      if (fieldSource) fieldSource.hidden = true;
+      return;
+    }
+    value = Math.min(1, Math.max(-1, value));
+    if (fieldValue) fieldValue.textContent = value.toFixed(2);
+    if (fieldMeaning) fieldMeaning.textContent = fieldMeaningFor(value);
+    if (fieldSwatch) fieldSwatch.style.background = fieldColour(value);
+    if (fieldReading) fieldReading.hidden = false;
+    if (fieldSource) {
+      var regional = fieldState.mode === 'regional';
+      fieldSource.textContent = regional ? T('field.regionalNote', 'Regional value, not measured for your field') : '';
+      fieldSource.hidden = !regional;
+    }
+  }
+
+  function fieldTyped() {
+    var raw = fieldInput ? String(fieldInput.value).trim() : '';
+    if (!raw) {
+      fieldState.mode = 'manual';
+      fieldState.manual = null;
+      fieldRender();
+      return;
+    }
+    var value = parseFloat(raw);
+    if (!isFinite(value) || value < -1 || value > 1) {
+      // Invalid: say so, and never show a made-up reading.
+      fieldState.manual = null;
+      fieldState.mode = 'manual';
+      if (fieldReading) fieldReading.hidden = false;
+      if (fieldSource) fieldSource.hidden = true;
+      if (fieldValue) fieldValue.textContent = '—';
+      if (fieldSwatch) fieldSwatch.style.background = 'transparent';
+      if (fieldMeaning) fieldMeaning.textContent = T('field.invalid', 'Enter a number between −1 and 1.');
+      return;
+    }
+    fieldState.mode = 'manual';
+    fieldState.manual = value;
+    fieldRender();
+  }
+
+  if (fieldInput) fieldInput.addEventListener('input', fieldTyped);
+  if (fieldInput) fieldInput.addEventListener('change', fieldTyped);
+  if (fieldRegionalBtn) {
+    fieldRegionalBtn.addEventListener('click', function () {
+      var value = regionalNdvi();
+      if (value == null) return;
+      fieldState.mode = 'regional';
+      fieldState.regional = value;
+      if (fieldInput) fieldInput.value = '';
+      fieldRender();
+    });
+  }
+
+  onLanguage(fieldRender);
 
   map.on('click', function (e) {
     // Measuring takes priority: a tap adds a corner to the field.
