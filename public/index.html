@@ -212,10 +212,57 @@
         </div>
 
         <div class="map-toast" id="mapToast" role="status" aria-live="polite" hidden></div>
+
+        <!-- Vegetation time-lapse: the hover position of this line is the
+             swipe between "chosen date" and "one year earlier". -->
+        <div class="veg-swipe-divider" id="vegSwipeDivider" hidden aria-hidden="true"></div>
       </div>
 
       <p class="map-notes" data-i18n="map.notes">Satellite background is for context (about 1 m, varies by area). Sentinel-2 is 10 m. Rain radar is coarse and may have gaps; NASA IMERG is about 10 km. Weather values are model data, not field measurements.</p>
       <p class="map-touch-note" data-i18n="map.touchNote">On a phone, one finger scrolls the page. Pinch or use the + and &minus; buttons to zoom the map.</p>
+
+      <!-- Punjab breathes — MODIS NDVI time-lapse (the same NASA GIBS
+           layer definition already used by the "Vegetation (MODIS NDVI)"
+           overlay in js/map.js; no new layer id is invented here). -->
+      <div class="card veg-timelapse reveal" id="vegTimeLapse">
+        <div class="veg-tl-head">
+          <div>
+            <h3 data-i18n="vegtl.title">Punjab breathes — vegetation time-lapse</h3>
+            <p class="veg-tl-sub" data-i18n="vegtl.sub">MODIS NDVI every 8 days. Press play, or compare a date with the same date one year earlier.</p>
+          </div>
+          <button class="btn btn-primary" type="button" id="vegTlToggle" aria-pressed="false"
+                  data-i18n="vegtl.control">Vegetation time-lapse</button>
+        </div>
+
+        <div class="veg-tl-body" id="vegTlBody" hidden>
+          <div class="veg-tl-controls">
+            <button class="veg-tl-play" type="button" id="vegTlPlay" aria-pressed="false"
+                    data-i18n-aria-label="vegtl.play" aria-label="Play the vegetation time-lapse">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5Z"/></svg>
+            </button>
+            <label class="veg-tl-slider-wrap">
+              <span class="visually-hidden" data-i18n="vegtl.sliderAria">Choose a date for the vegetation time-lapse</span>
+              <input type="range" id="vegTlSlider" class="veg-tl-slider" min="0" max="0" step="1" value="0">
+            </label>
+            <span class="veg-tl-date" id="vegTlDate">&mdash;</span>
+            <span class="veg-tl-state" id="vegTlState" role="status" aria-live="polite"></span>
+          </div>
+
+          <div class="veg-tl-compare-row">
+            <label class="veg-tl-check">
+              <input type="checkbox" id="vegTlCompare">
+              <span data-i18n="vegtl.compare">Compare with one year earlier</span>
+            </label>
+            <label class="veg-tl-swipe" id="vegTlSwipeWrap" hidden>
+              <span data-i18n="vegtl.swipe">Swipe to compare</span>
+              <input type="range" id="vegTlSwipe" class="veg-tl-swipe-range" min="0" max="100" step="1" value="50"
+                     data-i18n-aria-label="vegtl.swipeAria" aria-label="Drag to swipe between the chosen date and the same date one year earlier">
+            </label>
+          </div>
+
+          <p class="veg-tl-caption" data-i18n="vegtl.caption">MODIS NDVI, 250 m pixels: shows regional greening and browning, not single fields. Source: NASA GIBS.</p>
+        </div>
+      </div>
 
       <!-- Compare two spots -->
       <div class="compare-panel card reveal" id="comparePanel">
@@ -302,6 +349,50 @@
           </div>
 
           <p class="field-ndvi-caution" data-i18n="field.caution">NDVI shows that greenness changed, not why. Check the field on the ground (water, pests, nutrients, crop stage). Compare the same crop stage and season.</p>
+        </div>
+
+        <!-- Should I irrigate this week? — 7-day rain vs ET0 from the free
+             Open-Meteo API, for the clicked point or the outlined field. -->
+        <div class="advice-card" id="adviceCard" aria-labelledby="adviceTitle">
+          <div class="advice-head">
+            <h4 id="adviceTitle" data-i18n="advice.title">Should I irrigate this week?</h4>
+            <span class="advice-place" id="advicePlace" hidden></span>
+          </div>
+
+          <p class="advice-empty" id="adviceEmpty" data-i18n="advice.empty">Click a point on the map, or outline your field above, to see this week's advice.</p>
+
+          <div class="advice-body" id="adviceBody" hidden>
+            <p class="advice-status" id="adviceStatus" role="status" aria-live="polite"></p>
+
+            <div class="advice-totals">
+              <span class="advice-total"><span data-i18n="advice.rain">Rain</span> <strong id="adviceRainTotal">&mdash;</strong></span>
+              <span class="advice-total"><span data-i18n="advice.et">Water loss (ET0)</span> <strong id="adviceEtTotal">&mdash;</strong></span>
+            </div>
+
+            <div class="advice-gauge">
+              <div class="advice-gauge-head">
+                <span data-i18n="advice.soil">Soil moisture now</span>
+                <strong id="adviceSoilValue">&mdash;</strong>
+              </div>
+              <div class="gauge-track" id="adviceGaugeTrack" role="img" aria-label="">
+                <span class="gauge-fill" id="adviceGaugeFill"></span>
+              </div>
+              <div class="gauge-scale" aria-hidden="true"><span>0</span><span>0.25</span><span>0.5</span></div>
+            </div>
+
+            <div class="chart-box advice-chart">
+              <canvas id="adviceChart" role="img" data-i18n-aria-label="advice.chartAria" aria-label="Bar chart of forecast rain and water loss for the next 7 days"></canvas>
+            </div>
+
+            <p class="advice-ratio" id="adviceRatio"></p>
+            <p class="advice-formula" data-i18n="advice.formula">Rule: 7-day rain total &divide; 7-day ET0 total. 0.8 or more = green; 0.3 to 0.8 = amber; under 0.3 = red.</p>
+            <p class="advice-disclaimer" data-i18n="advice.disclaimer">Simple demonstration estimate. Real irrigation needs depend on crop, growth stage and soil &mdash; confirm with your local agriculture officer.</p>
+
+            <button class="btn btn-primary advice-share" type="button" id="adviceShare"
+                    data-i18n="advice.share" data-i18n-aria-label="advice.share">Share this week's advice on WhatsApp</button>
+          </div>
+
+          <p class="advice-credit" data-i18n="advice.credit">Forecast from Open-Meteo (free, no key). Soil moisture is a model value, not a field measurement.</p>
         </div>
       </div>
     </div>

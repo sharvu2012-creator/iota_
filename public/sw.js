@@ -8,7 +8,7 @@
 
 'use strict';
 
-const VERSION = 'iota-shell-v3';
+const VERSION = 'iota-shell-v4';
 
 const SHELL = [
   './',

@@ -1904,6 +1904,330 @@ html[data-lang="pa"] .btn {
 }
 
 /* ============================================================
+   13b. Irrigation advice + vegetation time-lapse
+   ============================================================ */
+
+/* Screen-reader-only label (sliders need a visible-less label). */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- "Should I irrigate this week?" ---------- */
+.advice-card {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.advice-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+}
+.advice-head h4 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1.02rem;
+  color: var(--section-fg);
+}
+.advice-place {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.advice-empty {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.advice-body { margin-top: 12px; }
+
+.advice-status {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--muted);
+  border-radius: 0 10px 10px 0;
+  background: var(--surface-2);
+  color: var(--section-fg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.advice-status.is-green {
+  border-left-color: var(--primary);
+  background: linear-gradient(90deg, rgba(46, 158, 91, 0.14), transparent 75%);
+}
+.advice-status.is-amber {
+  border-left-color: var(--warning);
+  background: linear-gradient(90deg, var(--amber-bg), transparent 75%);
+}
+.advice-status.is-red {
+  border-left-color: #c0392b;
+  background: linear-gradient(90deg, rgba(192, 57, 43, 0.14), transparent 75%);
+}
+.advice-status.is-loading { color: var(--muted); font-weight: 500; }
+.advice-status.is-error {
+  border-left-color: var(--muted);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.advice-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.advice-total {
+  padding: 6px 12px;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.advice-total strong {
+  color: var(--section-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.advice-gauge { margin-top: 14px; }
+.advice-gauge-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.advice-gauge-head strong {
+  color: var(--section-fg);
+  font-variant-numeric: tabular-nums;
+}
+.gauge-track {
+  position: relative;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.gauge-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: var(--pill);
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  transition: width 0.35s ease;
+}
+.gauge-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.advice-chart { height: 220px; margin-top: 14px; }
+.advice-ratio {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--section-fg);
+  font-variant-numeric: tabular-nums;
+}
+.advice-formula,
+.advice-disclaimer,
+.advice-credit {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.advice-disclaimer { font-style: italic; }
+.advice-credit { margin-top: 14px; }
+
+.advice-share {
+  margin-top: 12px;
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ---------- Punjab breathes — vegetation time-lapse ---------- */
+.veg-timelapse {
+  margin-top: 20px;
+  padding: 22px 24px;
+}
+.veg-tl-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.veg-tl-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--section-fg);
+}
+.veg-tl-sub {
+  margin: 5px 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  max-width: 60ch;
+}
+.veg-tl-head .btn { min-height: 44px; }
+
+.veg-tl-body { margin-top: 16px; }
+.veg-tl-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.veg-tl-play {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--primary);
+  color: #06210f;
+}
+.veg-tl-play:hover { background: #37b76a; }
+.veg-tl-play.is-playing { background: var(--warning); }
+.veg-tl-slider-wrap {
+  flex: 1 1 220px;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+.veg-tl-slider {
+  width: 100%;
+  height: 44px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  background: transparent;
+}
+.veg-tl-date {
+  flex: none;
+  min-width: 96px;
+  font-family: var(--font-head);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--section-fg);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.veg-tl-state {
+  flex: 1 1 100%;
+  min-height: 1.2em;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.veg-tl-state.is-missing { color: #b46b00; }
+:root[data-theme="dark"] .veg-tl-state.is-missing { color: #f0c25b; }
+
+.veg-tl-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 14px 26px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.veg-tl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  font-size: 0.88rem;
+  color: var(--section-fg);
+  cursor: pointer;
+}
+.veg-tl-check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.veg-tl-swipe {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 200px;
+  min-width: 170px;
+  min-height: 44px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.veg-tl-swipe-range {
+  flex: 1;
+  min-width: 90px;
+  height: 44px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+}
+.veg-tl-caption {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* The swipe handle drawn over the Leaflet map. */
+.veg-swipe-divider {
+  position: absolute;
+  z-index: 950;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-1px);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(11, 26, 20, 0.45);
+  pointer-events: none;
+}
+.veg-swipe-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 640px) {
+  .advice-head { flex-direction: column; align-items: flex-start; }
+  .advice-chart { height: 200px; }
+  .veg-timelapse { padding: 18px 16px; }
+  .veg-tl-head { flex-direction: column; }
+  .veg-tl-date { min-width: 84px; font-size: 0.88rem; }
+  .veg-tl-slider-wrap { flex-basis: 100%; order: 4; }
+}
+
+/* ============================================================
    14. Print — a clean one-page summary
    ============================================================ */
 @media print {

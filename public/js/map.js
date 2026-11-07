@@ -1178,6 +1178,16 @@
     }
     // The field greenness panel appears once the outline is a real field.
     if (fieldPanel) fieldPanel.hidden = measurePts.length < 3;
+    // Tell the rest of the page where the outlined field is (used by the
+    // "Should I irrigate this week?" card).
+    if (measurePts.length >= 3) {
+      var centre = L.polygon(measurePts).getBounds().getCenter();
+      try {
+        doc.dispatchEvent(new CustomEvent('sw:fieldcentre', {
+          detail: { lat: centre.lat, lng: centre.lng }
+        }));
+      } catch (e) {}
+    }
   }
 
   function measurePaint() {
@@ -1231,6 +1241,9 @@
     fieldState.mode = 'manual';
     fieldState.manual = null;
     fieldRender();
+    try {
+      doc.dispatchEvent(new CustomEvent('sw:fieldcentre', { detail: null }));
+    } catch (e) {}
   }
 
   function measureSetActive(on) {
@@ -1397,6 +1410,12 @@
     if (measureOn) { measureAddPoint(e.latlng); return; }
     // In compare mode a tap drops a pin instead of opening the forecast.
     if (compareArmed) { addComparePoint(e.latlng); return; }
+    // Tell the page which spot was clicked (used by the irrigation card).
+    try {
+      doc.dispatchEvent(new CustomEvent('sw:mappoint', {
+        detail: { lat: e.latlng.lat, lng: e.latlng.lng }
+      }));
+    } catch (er) {}
     openWeather(e.latlng.lat, e.latlng.lng);
   });
 
@@ -1504,6 +1523,388 @@
     var box = doc.querySelector('.map-search');
     if (box && !box.contains(e.target)) closeResults();
   });
+
+  /* ---------------------------------------------------------
+     Punjab breathes — MODIS NDVI time-lapse
+     Uses the same NASA GIBS layer definition as the
+     "Vegetation (MODIS NDVI)" overlay above. Nothing new is
+     invented: the slider only asks GIBS for real dates, and a
+     date that GIBS does not have shows a plain message.
+     --------------------------------------------------------- */
+  var vegPanel = doc.getElementById('vegTimeLapse');
+  var vegToggle = doc.getElementById('vegTlToggle');
+
+  if (vegPanel && vegToggle && typeof map.createPane === 'function') {
+    var tlBody = doc.getElementById('vegTlBody');
+    var tlPlay = doc.getElementById('vegTlPlay');
+    var tlSlider = doc.getElementById('vegTlSlider');
+    var tlDateEl = doc.getElementById('vegTlDate');
+    var tlStateEl = doc.getElementById('vegTlState');
+    var tlCompareEl = doc.getElementById('vegTlCompare');
+    var tlSwipeWrap = doc.getElementById('vegTlSwipeWrap');
+    var tlSwipeEl = doc.getElementById('vegTlSwipe');
+    var tlDivider = doc.getElementById('vegSwipeDivider');
+
+    var TL_STEP_MS = 8 * 24 * 60 * 60 * 1000;
+    var TL_TILE_OPTS = {
+      maxZoom: MAX_ZOOM,
+      maxNativeZoom: 9,
+      opacity: 0.8,
+      attribution: 'Vegetation: NASA GIBS / MODIS Terra NDVI (8-day)'
+    };
+
+    function tlPad2(n) { return (n < 10 ? '0' : '') + n; }
+
+    function tlIso(d) {
+      return d.getUTCFullYear() + '-' + tlPad2(d.getUTCMonth() + 1) + '-' + tlPad2(d.getUTCDate());
+    }
+
+    // One step every 8 days, from the requested 2023-01-01 to two days
+    // ago. GIBS needs a little time to publish the newest composite.
+    function tlBuildDates() {
+      var out = [];
+      var start = Date.UTC(2023, 0, 1);
+      var now = new Date();
+      now.setUTCHours(0, 0, 0, 0);
+      now.setUTCDate(now.getUTCDate() - 2);
+      var end = now.getTime();
+      for (var t = start; t <= end; t += TL_STEP_MS) out.push(tlIso(new Date(t)));
+      return out;
+    }
+
+    var tlDates = tlBuildDates();
+    var tlIndex = Math.max(0, tlDates.length - 1);
+    var tlToken = 0;
+    var tlTimer = null;
+    var tlPlaying = false;
+    var tlOpenState = false;
+    var tlVegWasOn = false;
+    var tlFirstIdx = null;
+    var tlFirstSearchStarted = false;
+    var tlState = null;
+    var tlProbeCache = {};
+
+    function tlPane(name, z) {
+      var pane = map.getPane(name) || map.createPane(name);
+      pane.style.zIndex = String(z);
+      pane.style.pointerEvents = 'none';
+      return pane;
+    }
+    tlPane('vegPanePre', 339);
+    tlPane('vegPaneA', 340);
+    tlPane('vegPaneB', 341);
+
+    var tlA = L.tileLayer(TRANSPARENT, { pane: 'vegPaneA', maxZoom: MAX_ZOOM, maxNativeZoom: 9, opacity: 0.8, attribution: TL_TILE_OPTS.attribution });
+    var tlB = L.tileLayer(TRANSPARENT, { pane: 'vegPaneB', maxZoom: MAX_ZOOM, maxNativeZoom: 9, opacity: 0.8, attribution: TL_TILE_OPTS.attribution });
+    var tlPre = L.tileLayer(TRANSPARENT, { pane: 'vegPanePre', maxZoom: MAX_ZOOM, maxNativeZoom: 9, opacity: 0 });
+
+    function tlTemplate(date) {
+      return GIBS + 'MODIS_Terra_NDVI_8Day/default/' + date +
+        '/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png';
+    }
+
+    function tlCenterTile() {
+      var z = Math.max(0, Math.min(Math.floor(map.getZoom()), 9));
+      var n = Math.pow(2, z);
+      var c = map.getCenter();
+      var x = Math.floor((c.lng + 180) / 360 * n);
+      var latRad = c.lat * Math.PI / 180;
+      var y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+      return { z: z, x: x, y: y };
+    }
+
+    function tlTileUrl(date, t) {
+      return GIBS + 'MODIS_Terra_NDVI_8Day/default/' + date +
+        '/GoogleMapsCompatible_Level9/' + t.z + '/' + t.y + '/' + t.x + '.png';
+    }
+
+    // Ask GIBS whether it has this date. A HEAD request is enough and
+    // costs no image bytes. cb(true/false) = answer, cb(null) = network
+    // or timeout, so a flaky connection is never reported as "no image".
+    function tlProbe(date, cb) {
+      if (tlProbeCache[date] === true || tlProbeCache[date] === false) {
+        cb(tlProbeCache[date]);
+        return;
+      }
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = window.setTimeout(function () {
+        if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+      }, 10000);
+      fetch(tlTileUrl(date, tlCenterTile()), {
+        method: 'HEAD',
+        signal: ctrl ? ctrl.signal : undefined
+      })
+        .then(function (r) {
+          window.clearTimeout(timer);
+          tlProbeCache[date] = !!r.ok;
+          cb(!!r.ok);
+        })
+        .catch(function () {
+          window.clearTimeout(timer);
+          cb(null);
+        });
+    }
+
+    function tlLocale() {
+      var code = 'en';
+      try { if (window.SW_I18N && typeof window.SW_I18N.lang === 'function') code = window.SW_I18N.lang(); } catch (e) {}
+      return code === 'hi' ? 'hi-IN' : (code === 'pa' ? 'pa-IN' : 'en-GB');
+    }
+
+    function tlFormatDate(iso) {
+      var p = String(iso).split('-');
+      if (p.length !== 3) return String(iso);
+      var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+      try {
+        return d.toLocaleDateString(tlLocale(), {
+          day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC'
+        });
+      } catch (e) {
+        return iso;
+      }
+    }
+
+    function tlPrevDate(iso) {
+      var p = String(iso).split('-');
+      if (p.length !== 3) return iso;
+      var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+      d.setUTCFullYear(d.getUTCFullYear() - 1);
+      return tlIso(d);
+    }
+
+    function tlSetState(key, cls, vars) {
+      tlState = { key: key, cls: cls || '', vars: vars || null };
+      if (!tlStateEl) return;
+      tlStateEl.className = 'veg-tl-state' + (cls ? ' ' + cls : '');
+      tlStateEl.textContent = key ? T(key, '', vars) : '';
+    }
+
+    function tlApplySwipe() {
+      var pct = tlSwipeEl ? Number(tlSwipeEl.value) : 50;
+      if (!isFinite(pct)) pct = 50;
+      pct = Math.max(0, Math.min(100, pct));
+      var paneB = map.getPane('vegPaneB');
+      var on = !!(tlCompareEl && tlCompareEl.checked && map.hasLayer(tlB));
+      if (paneB) {
+        paneB.style.clipPath = on ? 'inset(0 0 0 ' + pct + '%)' : '';
+        paneB.style.webkitClipPath = paneB.style.clipPath;
+      }
+      if (tlDivider) {
+        tlDivider.hidden = !on;
+        if (on) tlDivider.style.left = pct + '%';
+      }
+    }
+
+    function tlHideCompare() {
+      if (map.hasLayer(tlB)) map.removeLayer(tlB);
+      tlB.setUrl(TRANSPARENT);
+      tlApplySwipe();
+    }
+
+    function tlShowCompare(date, token) {
+      var prev = tlPrevDate(date);
+      tlProbe(prev, function (ok) {
+        if (token !== tlToken) return;
+        if (ok !== true) {
+          tlHideCompare();
+          tlSetState(ok === null ? 'vegtl.unavailable' : 'vegtl.missing', 'is-missing');
+          return;
+        }
+        tlB.setUrl(tlTemplate(prev));
+        if (!map.hasLayer(tlB)) tlB.addTo(map);
+        tlApplySwipe();
+      });
+    }
+
+    function tlPreloadNext(idx) {
+      var next = tlDates[idx + 1];
+      if (!next) { tlPre.setUrl(TRANSPARENT); return; }
+      // A zero-opacity layer in its own pane loads the visible tiles of
+      // the next frame, so pressing play does not wait for the network.
+      tlPre.setUrl(tlTemplate(next));
+      if (tlCompareEl && tlCompareEl.checked) tlProbe(tlPrevDate(tlDates[idx]), function () {});
+    }
+
+    function tlShow(idx) {
+      idx = Math.max(0, Math.min(tlDates.length - 1, idx));
+      tlIndex = idx;
+      if (tlSlider) tlSlider.value = String(idx);
+      if (tlDateEl) tlDateEl.textContent = tlFormatDate(tlDates[idx]);
+
+      var date = tlDates[idx];
+      var token = ++tlToken;
+      tlSetState('vegtl.loading', '');
+
+      tlProbe(date, function (ok) {
+        if (token !== tlToken) return;
+
+        if (ok === null) {
+          if (map.hasLayer(tlA)) map.removeLayer(tlA);
+          tlA.setUrl(TRANSPARENT);
+          tlHideCompare();
+          tlSetState('vegtl.unavailable', 'is-missing');
+          return;
+        }
+        if (ok === false) {
+          if (map.hasLayer(tlA)) map.removeLayer(tlA);
+          tlA.setUrl(TRANSPARENT);
+          tlHideCompare();
+          if (tlFirstIdx !== null && idx < tlFirstIdx) {
+            tlSetState('vegtl.archiveStarts', 'is-missing', { date: tlFormatDate(tlDates[tlFirstIdx]) });
+          } else {
+            tlSetState('vegtl.missing', 'is-missing');
+          }
+          return;
+        }
+
+        tlSetState(null, '');
+        tlA.setUrl(tlTemplate(date));
+        if (!map.hasLayer(tlA)) tlA.addTo(map);
+        tlPreloadNext(idx);
+        if (tlCompareEl && tlCompareEl.checked) tlShowCompare(date, token);
+        else tlHideCompare();
+      });
+    }
+
+    // Find the oldest date GIBS really has, so a missing early frame can
+    // say when the archive starts instead of guessing.
+    function tlFindFirst() {
+      if (tlFirstSearchStarted || tlDates.length < 2) return;
+      tlFirstSearchStarted = true;
+      var last = tlDates.length - 1;
+      tlProbe(tlDates[last], function (okLast) {
+        if (okLast !== true) { tlFirstSearchStarted = false; return; }
+        tlProbe(tlDates[0], function (okFirst) {
+          if (okFirst === true) { tlFirstIdx = 0; return; }
+          if (okFirst === null) { tlFirstSearchStarted = false; return; }
+          var lo = 0, hi = last;
+          function step() {
+            if (hi - lo <= 1) { tlFirstIdx = hi; return; }
+            var mid = Math.floor((lo + hi) / 2);
+            tlProbe(tlDates[mid], function (ok) {
+              if (ok === null) { tlFirstSearchStarted = false; return; }
+              if (ok) hi = mid; else lo = mid;
+              step();
+            });
+          }
+          step();
+        });
+      });
+    }
+
+    function tlSetPlaying(on) {
+      tlPlaying = !!on;
+      if (tlTimer) { window.clearInterval(tlTimer); tlTimer = null; }
+      if (tlPlay) {
+        tlPlay.innerHTML = on ? ICON_PAUSE : ICON_PLAY;
+        tlPlay.setAttribute('aria-pressed', on ? 'true' : 'false');
+        tlPlay.setAttribute('aria-label', T(on ? 'vegtl.pause' : 'vegtl.play',
+          on ? 'Pause the vegetation time-lapse' : 'Play the vegetation time-lapse'));
+        tlPlay.className = 'veg-tl-play' + (on ? ' is-playing' : '');
+      }
+      if (on) tlTimer = window.setInterval(tlStep, 1000);
+    }
+
+    function tlStep() {
+      if (tlIndex >= tlDates.length - 1) { tlSetPlaying(false); return; }
+      var next = tlIndex + 1;
+      // If the archive has not started yet at the current position, jump
+      // straight to the oldest real frame instead of flicking through
+      // dozens of empty ones.
+      if (tlFirstIdx !== null && tlIndex < tlFirstIdx) next = tlFirstIdx;
+      tlShow(next);
+    }
+
+    function tlOpen() {
+      if (tlOpenState) return;
+      tlOpenState = true;
+      if (tlBody) tlBody.hidden = false;
+      vegToggle.setAttribute('aria-pressed', 'true');
+      vegToggle.textContent = T('vegtl.stop', 'Stop the vegetation time-lapse');
+      // Keep the time-lapse's own panes visible: the normal overlay sits
+      // in Leaflet's overlay pane, which would cover them.
+      if (map.hasLayer(veg)) { tlVegWasOn = true; map.removeLayer(veg); }
+      tlPre.addTo(map);
+      tlSetPlaying(false);
+      tlShow(tlDates.length - 1);
+      tlFindFirst();
+    }
+
+    function tlClose() {
+      if (!tlOpenState) return;
+      tlOpenState = false;
+      if (tlBody) tlBody.hidden = true;
+      vegToggle.setAttribute('aria-pressed', 'false');
+      vegToggle.textContent = T('vegtl.control', 'Vegetation time-lapse');
+      tlSetPlaying(false);
+      if (map.hasLayer(tlA)) map.removeLayer(tlA);
+      if (map.hasLayer(tlPre)) map.removeLayer(tlPre);
+      tlA.setUrl(TRANSPARENT);
+      tlHideCompare();
+      if (tlVegWasOn) {
+        tlVegWasOn = false;
+        if (!map.hasLayer(veg)) veg.addTo(map);
+      }
+    }
+
+    if (tlSlider) {
+      tlSlider.min = '0';
+      tlSlider.max = String(tlDates.length - 1);
+      tlSlider.value = String(tlIndex);
+      tlSlider.addEventListener('input', function () {
+        tlSetPlaying(false);
+        tlShow(Number(tlSlider.value) || 0);
+      });
+    }
+    if (tlPlay) {
+      tlPlay.addEventListener('click', function () {
+        if (tlPlaying) { tlSetPlaying(false); return; }
+        if (tlFirstIdx !== null && tlIndex < tlFirstIdx) tlShow(tlFirstIdx);
+        if (tlIndex >= tlDates.length - 1) tlShow(tlFirstIdx === null ? 0 : tlFirstIdx);
+        tlSetPlaying(true);
+      });
+    }
+    if (tlCompareEl) {
+      tlCompareEl.addEventListener('change', function () {
+        if (tlSwipeWrap) tlSwipeWrap.hidden = !tlCompareEl.checked;
+        if (tlCompareEl.checked) tlShowCompare(tlDates[tlIndex], tlToken);
+        else tlHideCompare();
+      });
+    }
+    if (tlSwipeEl) tlSwipeEl.addEventListener('input', tlApplySwipe);
+    vegToggle.addEventListener('click', function () {
+      if (tlOpenState) tlClose(); else tlOpen();
+    });
+
+    // The normal NDVI overlay lives in Leaflet's overlay pane, above the
+    // time-lapse panes. If the visitor switches it on, close the
+    // time-lapse so only one copy of the layer is visible.
+    map.on('overlayadd', function (e) {
+      if (e.layer === veg && tlOpenState) tlClose();
+    });
+    map.on('overlayremove', function (e) {
+      if (e.layer === veg && !tlOpenState) tlVegWasOn = false;
+    });
+
+    onLanguage(function () {
+      vegToggle.textContent = tlOpenState
+        ? T('vegtl.stop', 'Stop the vegetation time-lapse')
+        : T('vegtl.control', 'Vegetation time-lapse');
+      if (!tlOpenState) return;
+      if (tlPlay) {
+        tlPlay.setAttribute('aria-label', T(tlPlaying ? 'vegtl.pause' : 'vegtl.play',
+          tlPlaying ? 'Pause the vegetation time-lapse' : 'Play the vegetation time-lapse'));
+      }
+      if (tlDateEl) tlDateEl.textContent = tlFormatDate(tlDates[tlIndex]);
+      if (tlState && tlState.key) {
+        var vars = tlState.vars;
+        if (tlState.key === 'vegtl.archiveStarts' && tlFirstIdx !== null) {
+          vars = { date: tlFormatDate(tlDates[tlFirstIdx]) };
+        }
+        tlSetState(tlState.key, tlState.cls, vars);
+      }
+    });
+  }
 
   /* ---------------------------------------------------------
      Housekeeping
